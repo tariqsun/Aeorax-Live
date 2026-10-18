@@ -28,6 +28,8 @@ import {
   UserCheck,
   Settings,
   Download,
+  ChevronRight,
+  ArrowUpRight,
 } from "lucide-react";
 
 interface NodeData {
@@ -456,13 +458,21 @@ export default function AeoraxDashboard() {
             </div>
           </div>
 
-          {/* Client Quota & Usage Highlights */}
+          {/* Client Quota & Usage Highlights — Clickable Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Concurrent Rooms */}
-            <div className="glass-card glass-hover card-theme-purple p-5 rounded-2xl">
+            {/* Card 1: Concurrent Rooms -> Switches to Rooms tab */}
+            <div
+              onClick={() => setClientTab("rooms")}
+              className={`glass-card glass-hover card-theme-purple p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                clientTab === "rooms" ? "ring-2 ring-purple-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider">
                 <span>Concurrent Rooms</span>
-                <Video className="w-4 h-4 text-purple-600" />
+                <div className="flex items-center space-x-1">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-purple-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <Video className="w-4 h-4 text-purple-600" />
+                </div>
               </div>
               <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
                 {activeCollege.activeRooms} <span className="text-sm font-bold text-slate-500">/ {activeCollege.maxRooms}</span>
@@ -473,13 +483,25 @@ export default function AeoraxDashboard() {
                   style={{ width: `${(activeCollege.activeRooms / activeCollege.maxRooms) * 100}%` }}
                 />
               </div>
+              <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-2.5 flex items-center space-x-1">
+                <span>Manage Classrooms</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
 
-            {/* Card 2: Concurrent Students */}
-            <div className="glass-card glass-hover card-theme-blue p-5 rounded-2xl">
+            {/* Card 2: Concurrent Students -> Switches to Rooms tab */}
+            <div
+              onClick={() => setClientTab("rooms")}
+              className={`glass-card glass-hover card-theme-blue p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                clientTab === "rooms" ? "ring-2 ring-blue-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider">
                 <span>Active Students</span>
-                <Users className="w-4 h-4 text-blue-600" />
+                <div className="flex items-center space-x-1">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <Users className="w-4 h-4 text-blue-600" />
+                </div>
               </div>
               <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
                 {activeCollege.activeStudents} <span className="text-sm font-bold text-slate-500">/ {activeCollege.maxStudents}</span>
@@ -490,13 +512,25 @@ export default function AeoraxDashboard() {
                   style={{ width: `${(activeCollege.activeStudents / activeCollege.maxStudents) * 100}%` }}
                 />
               </div>
+              <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-2.5 flex items-center space-x-1">
+                <span>View Live Sessions</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
 
-            {/* Card 3: Storage Used */}
-            <div className="glass-card glass-hover card-theme-emerald p-5 rounded-2xl">
+            {/* Card 3: Storage Used -> Switches to Recordings tab */}
+            <div
+              onClick={() => setClientTab("recordings")}
+              className={`glass-card glass-hover card-theme-emerald p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                clientTab === "recordings" ? "ring-2 ring-emerald-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
                 <span>Cloud Storage (R2)</span>
-                <HardDrive className="w-4 h-4 text-emerald-600" />
+                <div className="flex items-center space-x-1">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <HardDrive className="w-4 h-4 text-emerald-600" />
+                </div>
               </div>
               <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
                 {activeCollege.storageGb} <span className="text-sm font-bold text-slate-500">/ {activeCollege.storageLimitGb} GB</span>
@@ -507,19 +541,35 @@ export default function AeoraxDashboard() {
                   style={{ width: `${(activeCollege.storageGb / activeCollege.storageLimitGb) * 100}%` }}
                 />
               </div>
+              <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2.5 flex items-center space-x-1">
+                <span>Open Recordings</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
 
-            {/* Card 4: Plan Status */}
-            <div className="glass-card glass-hover card-theme-amber p-5 rounded-2xl">
+            {/* Card 4: Plan Status -> Switches to Teachers / Faculty tab */}
+            <div
+              onClick={() => setClientTab("teachers")}
+              className={`glass-card glass-hover card-theme-amber p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                clientTab === "teachers" ? "ring-2 ring-amber-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
                 <span>Subscription Plan</span>
-                <Sparkles className="w-4 h-4 text-amber-600" />
+                <div className="flex items-center space-x-1">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-amber-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                </div>
               </div>
               <div className="text-xl font-black mt-2 text-slate-900 dark:text-white truncate">
                 {activeCollege.plan.split("(")[0]}
               </div>
               <div className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-3">
                 Auto-Renew: Active • SLA 99.9% Uptime
+              </div>
+              <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-2.5 flex items-center space-x-1">
+                <span>Authorized Faculty</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </div>
@@ -714,15 +764,24 @@ export default function AeoraxDashboard() {
             })}
           </div>
 
-          {/* TOP METRIC HIGHLIGHTS — COLORFUL GLASS CARDS */}
+          {/* TOP METRIC HIGHLIGHTS — CLICKABLE COLORFUL GLASS CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="glass-card glass-hover card-theme-blue p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            {/* Card 1: Active Colleges -> Switches to Colleges tab */}
+            <div
+              onClick={() => setAdminTab("colleges")}
+              className={`glass-card glass-hover card-theme-blue p-5 rounded-2xl relative overflow-hidden group cursor-pointer transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                adminTab === "colleges" ? "ring-2 ring-blue-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider">
                   Active Colleges
                 </span>
-                <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/30">
-                  <GraduationCap className="w-4 h-4" />
+                <div className="flex items-center space-x-1.5">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <div className="p-2 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/30">
+                    <GraduationCap className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
               <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
@@ -732,15 +791,28 @@ export default function AeoraxDashboard() {
                 <CheckCircle className="w-3.5 h-3.5" />
                 <span>100% Tenant Isolation</span>
               </div>
+              <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-2.5 flex items-center space-x-1">
+                <span>Manage Tenants & Quotas</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
 
-            <div className="glass-card glass-hover card-theme-purple p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            {/* Card 2: BBB Nodes Fleet -> Switches to Nodes tab */}
+            <div
+              onClick={() => setAdminTab("nodes")}
+              className={`glass-card glass-hover card-theme-purple p-5 rounded-2xl relative overflow-hidden group cursor-pointer transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                adminTab === "nodes" ? "ring-2 ring-purple-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider">
                   BBB Nodes Fleet
                 </span>
-                <div className="p-2.5 rounded-xl bg-purple-600 text-white shadow-md shadow-purple-500/30">
-                  <Server className="w-4 h-4" />
+                <div className="flex items-center space-x-1.5">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-purple-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <div className="p-2 rounded-xl bg-purple-600 text-white shadow-md shadow-purple-500/30">
+                    <Server className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
               <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
@@ -749,15 +821,28 @@ export default function AeoraxDashboard() {
               <div className="text-xs font-bold text-purple-700 dark:text-purple-400 mt-2">
                 3 Ready • 1 Draining
               </div>
+              <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-2.5 flex items-center space-x-1">
+                <span>Manage Node Servers</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
 
-            <div className="glass-card glass-hover card-theme-amber p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            {/* Card 3: Active Classrooms -> Switches to Overview */}
+            <div
+              onClick={() => setAdminTab("overview")}
+              className={`glass-card glass-hover card-theme-amber p-5 rounded-2xl relative overflow-hidden group cursor-pointer transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                adminTab === "overview" ? "ring-2 ring-amber-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
                   Active Classrooms
                 </span>
-                <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-md shadow-amber-500/30">
-                  <Video className="w-4 h-4" />
+                <div className="flex items-center space-x-1.5">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-amber-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <div className="p-2 rounded-xl bg-amber-600 text-white shadow-md shadow-amber-500/30">
+                    <Video className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
               <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
@@ -766,15 +851,28 @@ export default function AeoraxDashboard() {
               <div className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-2">
                 Distributed via Scalelite
               </div>
+              <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-2.5 flex items-center space-x-1">
+                <span>Inspect Fleet Activity</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
 
-            <div className="glass-card glass-hover card-theme-emerald p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            {/* Card 4: Live Students & Cams -> Switches to Advisor tab */}
+            <div
+              onClick={() => setAdminTab("advisor")}
+              className={`glass-card glass-hover card-theme-emerald p-5 rounded-2xl relative overflow-hidden group cursor-pointer transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                adminTab === "advisor" ? "ring-2 ring-emerald-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
                   Live Students & Cams
                 </span>
-                <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-500/30">
-                  <Users className="w-4 h-4" />
+                <div className="flex items-center space-x-1.5">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-500/30">
+                    <Users className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
               <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
@@ -783,15 +881,28 @@ export default function AeoraxDashboard() {
               <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-2">
                 {totalCams} active video feeds
               </div>
+              <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2.5 flex items-center space-x-1">
+                <span>Capacity Telemetry</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
 
-            <div className="glass-card glass-hover card-theme-rose p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            {/* Card 5: Fleet RAM & Disk -> Switches to Nodes tab */}
+            <div
+              onClick={() => setAdminTab("nodes")}
+              className={`glass-card glass-hover card-theme-rose p-5 rounded-2xl relative overflow-hidden group cursor-pointer transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                adminTab === "nodes" ? "ring-2 ring-rose-500 shadow-md" : ""
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wider">
                   Fleet RAM & Disk
                 </span>
-                <div className="p-2.5 rounded-xl bg-rose-600 text-white shadow-md shadow-rose-500/30">
-                  <HardDrive className="w-4 h-4" />
+                <div className="flex items-center space-x-1.5">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-rose-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <div className="p-2 rounded-xl bg-rose-600 text-white shadow-md shadow-rose-500/30">
+                    <HardDrive className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
               <div className="text-2xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
@@ -799,6 +910,10 @@ export default function AeoraxDashboard() {
               </div>
               <div className="text-xs font-bold text-rose-700 dark:text-rose-400 mt-2">
                 Disk: {totalDiskUsed.toFixed(0)} / {totalDiskTotal} GB NVMe
+              </div>
+              <div className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-2.5 flex items-center space-x-1">
+                <span>View Server Hardware</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </div>
