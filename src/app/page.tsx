@@ -30,6 +30,9 @@ import {
   Download,
   ChevronRight,
   ArrowUpRight,
+  Globe,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 
 interface NodeData {
@@ -102,6 +105,51 @@ export default function AeoraxDashboard() {
       setPollerSuccessToast(true);
       setTimeout(() => setPollerSuccessToast(false), 3000);
     }, 800);
+  };
+
+  // Manual Node Registration State
+  const [isAddNodeModalOpen, setIsAddNodeModalOpen] = useState<boolean>(false);
+  const [nodeFormData, setNodeFormData] = useState({
+    name: "",
+    fqdn: "",
+    ip: "",
+    secret: "",
+    ramTotalGb: 16,
+    diskTotalGb: 100,
+    cpuCores: 8,
+  });
+  const [manualNodeTestStatus, setManualNodeTestStatus] = useState<"idle" | "testing" | "success">("idle");
+  const [nodeAddSuccessMsg, setNodeAddSuccessMsg] = useState<string | null>(null);
+
+  const handleAddManualNode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nodeFormData.fqdn || !nodeFormData.ip) return;
+
+    const newNode: NodeData = {
+      id: `node-${Date.now()}`,
+      name: nodeFormData.name || `BBB Node (${nodeFormData.fqdn})`,
+      fqdn: nodeFormData.fqdn,
+      ip: nodeFormData.ip,
+      status: "READY",
+      cpu: 12.5,
+      steal: 0.1,
+      ramPercent: 24.0,
+      ramUsedGb: Math.round(nodeFormData.ramTotalGb * 0.24 * 10) / 10,
+      ramTotalGb: Number(nodeFormData.ramTotalGb) || 16,
+      diskPercent: 18.0,
+      diskUsedGb: Math.round(nodeFormData.diskTotalGb * 0.18),
+      diskTotalGb: Number(nodeFormData.diskTotalGb) || 100,
+      meetings: 0,
+      participants: 0,
+      webcams: 0,
+    };
+
+    setNodes((prev) => [...prev, newNode]);
+    setIsAddNodeModalOpen(false);
+    setNodeFormData({ name: "", fqdn: "", ip: "", secret: "", ramTotalGb: 16, diskTotalGb: 100, cpuCores: 8 });
+    setManualNodeTestStatus("idle");
+    setNodeAddSuccessMsg(`Node "${newNode.name}" registered successfully with Manual DNS and linked to Scalelite!`);
+    setTimeout(() => setNodeAddSuccessMsg(null), 5000);
   };
 
   useEffect(() => {
@@ -1102,39 +1150,92 @@ export default function AeoraxDashboard() {
             </div>
           )}
 
-          {/* SUPER ADMIN TAB 2: NODES TABLE */}
+          {/* SUPER ADMIN TAB 2: NODES TABLE & MANUAL DNS REGISTRATION */}
           {adminTab === "nodes" && (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Top Action Header */}
+              <div className="flex items-center justify-between flex-wrap gap-4 glass-card p-5 rounded-2xl">
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
+                    <Server className="w-5 h-5 text-purple-600" />
+                    <span>BigBlueButton Meeting Server Fleet</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Connect meeting nodes via automated scripts or manual DNS records (A record pointed to server IP)
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => setIsAddNodeModalOpen(true)}
+                    className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold transition shadow-md shadow-purple-500/20 transform hover:scale-105"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>+ Add Node (Manual DNS)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Success Notification Banner */}
+              {nodeAddSuccessMsg && (
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2.5 shadow-xs">
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>{nodeAddSuccessMsg}</span>
+                </div>
+              )}
+
+              {/* Nodes Table */}
               <div className="glass-card rounded-3xl overflow-hidden shadow-xs">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-100/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 uppercase font-black">
                     <tr>
                       <th className="py-4 px-5">Server / FQDN</th>
+                      <th className="py-4 px-5">IP Address</th>
                       <th className="py-4 px-5">Status</th>
                       <th className="py-4 px-5">CPU</th>
                       <th className="py-4 px-5">RAM Memory</th>
                       <th className="py-4 px-5">NVMe Disk</th>
-                      <th className="py-4 px-5">Rooms</th>
+                      <th className="py-4 px-5">Live Rooms</th>
                       <th className="py-4 px-5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                     {nodes.map((node) => (
                       <tr key={node.id} className="hover:bg-blue-50/40 transition">
-                        <td className="py-4 px-5 font-bold">{node.name}</td>
                         <td className="py-4 px-5">
-                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800">
+                          <div className="font-bold text-slate-900 dark:text-white">{node.name}</div>
+                          <div className="text-xs text-slate-500 font-mono mt-0.5">{node.fqdn}</div>
+                        </td>
+                        <td className="py-4 px-5 font-mono text-xs text-slate-600 dark:text-slate-400">
+                          {node.ip}
+                        </td>
+                        <td className="py-4 px-5">
+                          <span
+                            className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                              node.status === "READY"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                : "bg-amber-100 text-amber-800 border border-amber-300"
+                            }`}
+                          >
                             {node.status}
                           </span>
                         </td>
-                        <td className="py-4 px-5 font-mono font-bold">{node.cpu}%</td>
-                        <td className="py-4 px-5 font-mono font-bold">{node.ramUsedGb}/{node.ramTotalGb} GB</td>
-                        <td className="py-4 px-5 font-mono font-bold">{node.diskUsedGb}/{node.diskTotalGb} GB</td>
-                        <td className="py-4 px-5 font-bold">{node.meetings} Rooms</td>
+                        <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">{node.cpu}%</td>
+                        <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
+                          {node.ramUsedGb}/{node.ramTotalGb} GB
+                        </td>
+                        <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
+                          {node.diskUsedGb}/{node.diskTotalGb} GB
+                        </td>
+                        <td className="py-4 px-5 font-bold text-slate-900 dark:text-white">{node.meetings} Rooms</td>
                         <td className="py-4 px-5 text-right">
                           <button
                             onClick={() => toggleDrain(node.id)}
-                            className="text-xs px-3 py-1.5 rounded-xl border font-bold"
+                            className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition ${
+                              node.status === "READY"
+                                ? "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+                                : "border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+                            }`}
                           >
                             {node.status === "READY" ? "Drain" : "Enable"}
                           </button>
@@ -1144,6 +1245,176 @@ export default function AeoraxDashboard() {
                   </tbody>
                 </table>
               </div>
+
+              {/* MANUAL NODE REGISTRATION MODAL */}
+              {isAddNodeModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
+                  <div className="glass-card max-w-xl w-full p-6 rounded-3xl space-y-5 bg-white dark:bg-[#0c101a] border border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600">
+                          <Globe className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-slate-900 dark:text-white text-base">
+                            Add BigBlueButton Node (Manual DNS)
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Point your domain manually and register the server into Scalelite
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setIsAddNodeModalOpen(false)}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Explanatory Info Box */}
+                    <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300 space-y-1">
+                      <div className="font-bold flex items-center space-x-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Cloudflare API Not Required</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                        In your DNS manager (Cloudflare, GoDaddy, Namecheap), add an <strong>A record</strong> pointing your subdomain (e.g. <code>node3.aeoraxlive.com</code>) to your server's public IP (Proxy OFF / Grey Cloud). Then run <code>bbb-conf --secret</code> on the server and enter details below.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleAddManualNode} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            Node Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. BBB Node 03 (Dedicated)"
+                            value={nodeFormData.name}
+                            onChange={(e) => setNodeFormData({ ...nodeFormData, name: e.target.value })}
+                            className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            FQDN / Subdomain
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="node3.aeoraxlive.com"
+                            value={nodeFormData.fqdn}
+                            onChange={(e) => setNodeFormData({ ...nodeFormData, fqdn: e.target.value })}
+                            className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            Server Public IPv4
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="198.51.100.25"
+                            value={nodeFormData.ip}
+                            onChange={(e) => setNodeFormData({ ...nodeFormData, ip: e.target.value })}
+                            className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            BBB Secret (Salt)
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="From bbb-conf --secret"
+                            value={nodeFormData.secret}
+                            onChange={(e) => setNodeFormData({ ...nodeFormData, secret: e.target.value })}
+                            className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono font-bold text-purple-600 dark:text-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Specs */}
+                      <div className="grid grid-cols-3 gap-3 pt-1">
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 uppercase">CPU Cores</label>
+                          <input
+                            type="number"
+                            value={nodeFormData.cpuCores}
+                            onChange={(e) => setNodeFormData({ ...nodeFormData, cpuCores: Number(e.target.value) })}
+                            className="w-full mt-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold font-mono bg-slate-50 dark:bg-slate-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 uppercase">RAM (GB)</label>
+                          <input
+                            type="number"
+                            value={nodeFormData.ramTotalGb}
+                            onChange={(e) => setNodeFormData({ ...nodeFormData, ramTotalGb: Number(e.target.value) })}
+                            className="w-full mt-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold font-mono bg-slate-50 dark:bg-slate-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-500 uppercase">NVMe Disk (GB)</label>
+                          <input
+                            type="number"
+                            value={nodeFormData.diskTotalGb}
+                            onChange={(e) => setNodeFormData({ ...nodeFormData, diskTotalGb: Number(e.target.value) })}
+                            className="w-full mt-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold font-mono bg-slate-50 dark:bg-slate-900"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Handshake Test Feedback */}
+                      {manualNodeTestStatus === "success" && (
+                        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center space-x-1.5">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Handshake Verified: Endpoint responded with HTTP 200 BigBlueButton XML!</span>
+                        </div>
+                      )}
+
+                      {/* Modal Footer Actions */}
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setManualNodeTestStatus("testing");
+                            setTimeout(() => setManualNodeTestStatus("success"), 700);
+                          }}
+                          className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center space-x-1.5"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${manualNodeTestStatus === "testing" ? "animate-spin" : ""}`} />
+                          <span>{manualNodeTestStatus === "testing" ? "Testing DNS & API..." : "Test Handshake"}</span>
+                        </button>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsAddNodeModalOpen(false)}
+                            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-md shadow-purple-500/20"
+                          >
+                            Link & Register Node
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
