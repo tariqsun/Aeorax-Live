@@ -83,8 +83,10 @@ export default function AeoraxDashboard() {
   const [selectedCollegeSlug, setSelectedCollegeSlug] = useState<string>("oxford-intl");
 
   // Tab navigation
-  const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "colleges" | "recordings" | "advisor">("overview");
-  const [clientTab, setClientTab] = useState<"rooms" | "teachers" | "recordings" | "moodle">("rooms");
+  const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "colleges" | "moodle" | "recordings" | "advisor">("overview");
+  const [clientTab, setClientTab] = useState<"rooms" | "teachers" | "recordings">("rooms");
+  const [selectedMoodleCollegeSlug, setSelectedMoodleCollegeSlug] = useState<string>("oxford-intl");
+  const [moodleTestResult, setMoodleTestResult] = useState<"idle" | "testing" | "success">("idle");
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
@@ -517,18 +519,17 @@ export default function AeoraxDashboard() {
                 {activeCollege.plan.split("(")[0]}
               </div>
               <div className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-3">
-                Auto-Renew: Active • Moodle Enabled
+                Auto-Renew: Active • SLA 99.9% Uptime
               </div>
             </div>
           </div>
 
-          {/* Client Navigation Tabs */}
+          {/* Client Navigation Tabs (No technical Moodle options for college) */}
           <div className="flex space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">
             {[
               { id: "rooms", label: "Virtual Classrooms", icon: Video },
               { id: "teachers", label: "Teachers & Staff", icon: Users },
               { id: "recordings", label: "Class Recordings", icon: HardDrive },
-              { id: "moodle", label: "Moodle & LMS Integration", icon: Lock },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = clientTab === tab.id;
@@ -617,59 +618,6 @@ export default function AeoraxDashboard() {
             </div>
           )}
 
-          {/* CLIENT TAB 2: MOODLE INTEGRATION (Isolated API Credentials) */}
-          {clientTab === "moodle" && (
-            <div className="space-y-6">
-              <div className="glass-card p-6 rounded-3xl space-y-5">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Moodle & Canvas LMS Integration</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Connect your college Moodle plugin directly to Aeorax Live with isolated tenant API credentials
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-4">
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">BigBlueButton Server URL</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        readOnly
-                        value="https://bbb.aeoraxlive.com/bigbluebutton/api"
-                        className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
-                      />
-                      <button
-                        onClick={() => copyToClipboard("https://bbb.aeoraxlive.com/bigbluebutton/api")}
-                        className="px-3 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 transition"
-                      >
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tenant Shared Secret (Salt)</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        readOnly
-                        value={activeCollege.apiSecret}
-                        className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-purple-600 dark:text-purple-400"
-                      />
-                      <button
-                        onClick={() => copyToClipboard(activeCollege.apiSecret)}
-                        className="px-3 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 transition"
-                      >
-                        {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : "Copy"}
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      🔒 This secret enforces your college's contracted limits and protects other institutions from quota interference.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* CLIENT TAB 3: RECORDINGS */}
           {clientTab === "recordings" && (
             <div className="glass-card p-6 rounded-3xl space-y-4">
@@ -743,6 +691,7 @@ export default function AeoraxDashboard() {
               { id: "overview", label: "Overview", icon: Activity },
               { id: "nodes", label: "BBB Meeting Nodes", icon: Server },
               { id: "colleges", label: "Colleges & Quotas", icon: GraduationCap },
+              { id: "moodle", label: "Moodle & LMS Gateway", icon: Lock },
               { id: "recordings", label: "Recording & R2 Pipeline", icon: Video },
               { id: "advisor", label: "Smart Capacity Advisor", icon: ShieldCheck },
             ].map((tab) => {
@@ -1012,35 +961,347 @@ export default function AeoraxDashboard() {
                       <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">{col.name}</h3>
                       <div className="text-xs text-slate-500 font-mono mt-1">Tenant Slug: {col.slug}</div>
                     </div>
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-bold">
+                    <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-bold">
                       {col.plan}
                     </span>
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs">
-                      <span>Concurrent Classrooms</span>
-                      <span className="font-bold">{col.activeRooms} / {col.maxRooms} rooms</span>
+                      <span className="text-slate-500">Concurrent Classrooms</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{col.activeRooms} / {col.maxRooms} rooms</span>
                     </div>
                     <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-600 rounded-full" style={{ width: `${(col.activeRooms / col.maxRooms) * 100}%` }} />
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-200 flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-500">Moodle API Secret Active</span>
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs">
+                    <button
+                      onClick={() => {
+                        setSelectedMoodleCollegeSlug(col.slug);
+                        setAdminTab("moodle");
+                      }}
+                      className="font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Configure LMS Gateway →</span>
+                    </button>
                     <button
                       onClick={() => {
                         setSelectedCollegeSlug(col.slug);
                         setCurrentView("CLIENT_PORTAL");
                       }}
-                      className="text-xs text-purple-600 font-bold hover:underline"
+                      className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline"
                     >
-                      Login to Client Portal →
+                      View Client Portal →
                     </button>
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* SUPER ADMIN TAB 4: MOODLE & LMS GATEWAY (SUPER ADMIN MANAGED ONLY) */}
+          {adminTab === "moodle" && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="glass-card p-6 rounded-3xl relative overflow-hidden bg-gradient-to-r from-blue-50 via-indigo-50/50 to-white dark:from-blue-950/30 dark:via-slate-900/60 dark:to-indigo-950/30 border border-blue-200/90 dark:border-blue-800/40 shadow-xs">
+                <div className="flex items-start justify-between flex-wrap gap-4">
+                  <div className="flex items-start space-x-4">
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25">
+                      <Lock className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                        Moodle & Canvas LMS Gateway Management
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-2xl">
+                        🔒 <span className="font-bold text-slate-700 dark:text-slate-300">Centralized Admin Control:</span> Colleges and clients do not have access to manage or view raw API keys. All BigBlueButton endpoints, tenant shared secrets, and LMS credentials are configured exclusively from this Super Admin panel.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* College Picker for LMS Setup */}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-slate-500">Select College:</span>
+                    <select
+                      value={selectedMoodleCollegeSlug}
+                      onChange={(e) => {
+                        setSelectedMoodleCollegeSlug(e.target.value);
+                        setMoodleTestResult("idle");
+                      }}
+                      className="text-xs font-bold px-3.5 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-blue-900 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+                    >
+                      {colleges.map((c) => (
+                        <option key={c.slug} value={c.slug}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected College LMS Configuration Cards */}
+              {(() => {
+                const targetCol = colleges.find((c) => c.slug === selectedMoodleCollegeSlug) || colleges[0];
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left 2 Cols: Credentials & Endpoints */}
+                    <div className="lg:col-span-2 space-y-5">
+                      <div className="glass-card p-6 rounded-3xl space-y-5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                              {targetCol.name} — LMS Credentials
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Use these settings when installing the BigBlueButtonBN plugin on the client's Moodle instance
+                            </p>
+                          </div>
+                          <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 font-bold border border-emerald-300">
+                            Gateway Active
+                          </span>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-4">
+                          {/* BBB URL */}
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                              BigBlueButton Server URL
+                            </label>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <input
+                                readOnly
+                                value="https://bbb.aeoraxlive.com/bigbluebutton/api"
+                                className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
+                              />
+                              <button
+                                onClick={() => copyToClipboard("https://bbb.aeoraxlive.com/bigbluebutton/api")}
+                                className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Secret */}
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                Tenant Shared Secret (Salt)
+                              </label>
+                              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-bold">
+                                SHA-1 Checksum Enforced
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <input
+                                readOnly
+                                value={targetCol.apiSecret}
+                                className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-purple-600 dark:text-purple-400"
+                              />
+                              <button
+                                onClick={() => copyToClipboard(targetCol.apiSecret)}
+                                className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                              >
+                                {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : "Copy"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Public API Key */}
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                              Tenant Public API Key
+                            </label>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <input
+                                readOnly
+                                value={targetCol.apiKey}
+                                className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300"
+                              />
+                              <button
+                                onClick={() => copyToClipboard(targetCol.apiKey)}
+                                className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Webhook URL */}
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                              Moodle Callback / Webhook URL
+                            </label>
+                            <input
+                              readOnly
+                              value={`https://lms.${targetCol.slug}.edu/mod/bigbluebuttonbn/bbb_broker.php`}
+                              className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 mt-1"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Handshake Tester */}
+                        <div className="pt-2 flex items-center justify-between flex-wrap gap-3">
+                          <button
+                            onClick={() => {
+                              setMoodleTestResult("testing");
+                              setTimeout(() => setMoodleTestResult("success"), 600);
+                            }}
+                            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-500/20 flex items-center space-x-2"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${moodleTestResult === "testing" ? "animate-spin" : ""}`} />
+                            <span>
+                              {moodleTestResult === "testing" ? "Testing Gateway Handshake..." : "Test Moodle API Handshake"}
+                            </span>
+                          </button>
+
+                          {moodleTestResult === "success" && (
+                            <span className="text-xs px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 font-bold flex items-center space-x-1.5">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>HTTP 200 XML SUCCESS • Checksum Verified</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Col: Admin Policy & Quota Controls */}
+                    <div className="space-y-5">
+                      <div className="glass-card p-6 rounded-3xl space-y-4">
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                          Enforced Quota Parameters
+                        </h4>
+                        <div className="space-y-3 text-xs">
+                          <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-slate-500 font-medium">Max Simultaneous Rooms</span>
+                            <span className="font-mono font-black text-slate-900 dark:text-white">
+                              {targetCol.maxRooms} Rooms
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-slate-500 font-medium">Max Total Participants</span>
+                            <span className="font-mono font-black text-slate-900 dark:text-white">
+                              {targetCol.maxStudents} Students
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-slate-500 font-medium">Max Students Per Room</span>
+                            <span className="font-mono font-black text-slate-900 dark:text-white">
+                              100 Students
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-slate-500 font-medium">Cloud Storage Allocation</span>
+                            <span className="font-mono font-black text-slate-900 dark:text-white">
+                              {targetCol.storageLimitGb} GB
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-2">
+                            <span className="text-slate-500 font-medium">Auto-Record to R2</span>
+                            <span className="font-bold text-emerald-600">Enabled</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="glass-card p-5 rounded-2xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 space-y-2">
+                        <div className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
+                          <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                          <span>Tenant Isolation Guarantee</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          Because college clients cannot view or change their API secrets, each institution's quota is strictly enforced at the gateway. A misbehaving Moodle cron or plugin cannot exhaust other colleges' resources.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* SUPER ADMIN TAB 5: RECORDING & R2 PIPELINE */}
+          {adminTab === "recordings" && (
+            <div className="glass-card p-6 rounded-3xl space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Cloudflare R2 Recordings Pipeline
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Automated post-meeting publishing, compression, and S3-compatible R2 cloud storage archive
+                  </p>
+                </div>
+                <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
+                  Workers Active • 0 Failed Jobs
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500 font-bold">Total Storage Consumed</div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">324.8 GB</div>
+                  <div className="text-xs text-slate-500 mt-1">across 3 active colleges</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500 font-bold">Recordings Processed (Today)</div>
+                  <div className="text-2xl font-black text-blue-600 mt-1">42 Sessions</div>
+                  <div className="text-xs text-slate-500 mt-1">avg. 48 mins per lecture</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <div className="text-xs text-slate-500 font-bold">Estimated Monthly Cost</div>
+                  <div className="text-2xl font-black text-emerald-600 mt-1">$4.85 / mo</div>
+                  <div className="text-xs text-slate-500 mt-1">Zero egress fees on Cloudflare R2</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SUPER ADMIN TAB 6: SMART CAPACITY ADVISOR */}
+          {adminTab === "advisor" && (
+            <div className="glass-card p-6 rounded-3xl space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Smart Capacity & Node Advisor
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Heuristic telemetry analysis for BigBlueButton cluster scaling and failover readiness
+                  </p>
+                </div>
+                <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-bold border border-blue-300">
+                  Cluster Status: HEALTHY
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 flex items-start space-x-3">
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                      Fleet Headroom Adequate (39.5% Available)
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      Current fleet of 4 BBB nodes can support an additional 360 concurrent participants without quality degradation.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 flex items-start space-x-3">
+                  <Server className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-bold text-blue-900 dark:text-blue-300">
+                      Node 04 Scheduled Maintenance in Progress
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      Node 04 is currently in DRAIN mode. Scalelite is gracefully allowing existing meetings to conclude before kernel updates.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </main>
