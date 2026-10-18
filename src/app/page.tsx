@@ -92,6 +92,17 @@ export default function AeoraxDashboard() {
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
+  const [isPolling, setIsPolling] = useState<boolean>(false);
+  const [pollerSuccessToast, setPollerSuccessToast] = useState<boolean>(false);
+
+  const triggerScalelitePoller = () => {
+    setIsPolling(true);
+    setTimeout(() => {
+      setIsPolling(false);
+      setPollerSuccessToast(true);
+      setTimeout(() => setPollerSuccessToast(false), 3000);
+    }, 800);
+  };
 
   useEffect(() => {
     const savedTheme = (localStorage.getItem("aeorax-theme") as "light" | "dark") || "light";
@@ -939,6 +950,76 @@ export default function AeoraxDashboard() {
                     <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 max-w-3xl">
                       Current aggregate node fleet utilization is <strong className="text-blue-600 dark:text-blue-400 font-bold">52.4%</strong>. All active WebRTC streams are operating with low jitter (&lt;12ms).
                     </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scalelite Load Balancer Controller & Live Stats */}
+              <div className="glass-card p-6 rounded-3xl space-y-5 border border-purple-200/90 dark:border-purple-800/40 bg-gradient-to-r from-purple-50/50 via-indigo-50/30 to-white dark:from-purple-950/20 dark:via-slate-900/60 dark:to-slate-900/60 shadow-xs">
+                <div className="flex items-start justify-between flex-wrap gap-4">
+                  <div className="flex items-center space-x-3.5">
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/25">
+                      <Layers className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2.5">
+                        <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
+                          Scalelite Load Balancer Controller
+                        </h3>
+                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300 font-bold border border-emerald-300">
+                          v1.4.0 Connected
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                        Load Balancer API: <code className="text-purple-600 dark:text-purple-400 font-bold font-mono">http://scalelite:3000/bigbluebutton/api</code> • Secret: <code className="text-slate-600 dark:text-slate-400 font-mono">aeorax_scalelite_...</code>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={triggerScalelitePoller}
+                      disabled={isPolling}
+                      className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-xs font-bold transition shadow-md shadow-purple-500/20"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isPolling ? "animate-spin" : ""}`} />
+                      <span>{isPolling ? "Syncing Nodes..." : "Sync Poller Now"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {pollerSuccessToast && (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Scalelite Poller triggered: Successfully synchronized meeting states across 4 BigBlueButton nodes!</span>
+                  </div>
+                )}
+
+                {/* 3 Metric Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1 text-xs">
+                  <div className="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800">
+                    <span className="text-slate-500 font-medium">Balancing Strategy</span>
+                    <div className="font-extrabold text-slate-900 dark:text-white text-sm mt-1">
+                      Least-Loaded Dynamic Scheduling
+                    </div>
+                    <span className="text-[11px] text-emerald-600 font-bold mt-0.5 inline-block">Active • Distributes classes evenly</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800">
+                    <span className="text-slate-500 font-medium">Pool Health & Routing</span>
+                    <div className="font-extrabold text-slate-900 dark:text-white text-sm mt-1">
+                      {nodes.filter(n => n.status === "READY").length} Ready • {nodes.filter(n => n.status === "DRAIN").length} Drain Mode
+                    </div>
+                    <span className="text-[11px] text-purple-600 font-bold mt-0.5 inline-block">Automatic Failover Armed</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800">
+                    <span className="text-slate-500 font-medium">Total Managed Sessions</span>
+                    <div className="font-extrabold text-slate-900 dark:text-white text-sm mt-1">
+                      {totalRooms} Live Classrooms
+                    </div>
+                    <span className="text-[11px] text-blue-600 font-bold mt-0.5 inline-block">Across all registered colleges</span>
                   </div>
                 </div>
               </div>
