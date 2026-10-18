@@ -10,12 +10,12 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN npm install --include=dev
 
 # 2. Builder Stage
 FROM base AS builder
 WORKDIR /app
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

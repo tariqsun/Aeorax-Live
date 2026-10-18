@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyBBBChecksum, buildScopedMeetingId } from "@/lib/bbb-api";
-import { acquireMeetingLease } from "@/lib/quota-lease";
+import { verifyBBBChecksum, buildScopedMeetingId } from "../../../lib/bbb-api";
+import { acquireMeetingLease } from "../../../lib/quota-lease";
 
 // Standard BBB XML Error Helper
 function bbbXmlError(messageKey: string, message: string): string {
