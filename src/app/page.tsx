@@ -19,6 +19,7 @@ import {
   Layers,
   CheckCircle,
   Cpu,
+  Database,
 } from "lucide-react";
 
 interface NodeData {
@@ -29,7 +30,12 @@ interface NodeData {
   status: "READY" | "DRAIN" | "PROVISIONING";
   cpu: number;
   steal: number;
-  ram: number;
+  ramPercent: number;
+  ramUsedGb: number;
+  ramTotalGb: number;
+  diskPercent: number;
+  diskUsedGb: number;
+  diskTotalGb: number;
   meetings: number;
   participants: number;
   webcams: number;
@@ -84,7 +90,12 @@ export default function AeoraxDashboard() {
       status: "READY",
       cpu: 48.2,
       steal: 0.2,
-      ram: 58.4,
+      ramPercent: 58.4,
+      ramUsedGb: 9.3,
+      ramTotalGb: 16,
+      diskPercent: 42.0,
+      diskUsedGb: 42,
+      diskTotalGb: 100,
       meetings: 8,
       participants: 240,
       webcams: 42,
@@ -97,7 +108,12 @@ export default function AeoraxDashboard() {
       status: "READY",
       cpu: 62.7,
       steal: 0.4,
-      ram: 64.1,
+      ramPercent: 64.1,
+      ramUsedGb: 10.3,
+      ramTotalGb: 16,
+      diskPercent: 54.5,
+      diskUsedGb: 54.5,
+      diskTotalGb: 100,
       meetings: 11,
       participants: 310,
       webcams: 68,
@@ -110,7 +126,12 @@ export default function AeoraxDashboard() {
       status: "READY",
       cpu: 34.0,
       steal: 0.1,
-      ram: 42.0,
+      ramPercent: 42.0,
+      ramUsedGb: 13.4,
+      ramTotalGb: 32,
+      diskPercent: 28.0,
+      diskUsedGb: 56,
+      diskTotalGb: 200,
       meetings: 5,
       participants: 180,
       webcams: 25,
@@ -123,7 +144,12 @@ export default function AeoraxDashboard() {
       status: "DRAIN",
       cpu: 12.1,
       steal: 0.1,
-      ram: 28.0,
+      ramPercent: 28.0,
+      ramUsedGb: 4.5,
+      ramTotalGb: 16,
+      diskPercent: 35.0,
+      diskUsedGb: 35,
+      diskTotalGb: 100,
       meetings: 1,
       participants: 12,
       webcams: 2,
@@ -192,6 +218,10 @@ export default function AeoraxDashboard() {
   const totalRooms = nodes.reduce((acc, n) => acc + n.meetings, 0);
   const totalStudents = nodes.reduce((acc, n) => acc + n.participants, 0);
   const totalCams = nodes.reduce((acc, n) => acc + n.webcams, 0);
+  const totalRamUsed = nodes.reduce((acc, n) => acc + n.ramUsedGb, 0);
+  const totalRamTotal = nodes.reduce((acc, n) => acc + n.ramTotalGb, 0);
+  const totalDiskUsed = nodes.reduce((acc, n) => acc + n.diskUsedGb, 0);
+  const totalDiskTotal = nodes.reduce((acc, n) => acc + n.diskTotalGb, 0);
 
   const toggleDrain = (nodeId: string) => {
     setNodes((prev) =>
@@ -268,11 +298,11 @@ export default function AeoraxDashboard() {
         {/* Navigation Tabs with Vibrant Active States */}
         <div className="flex space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
           {[
-            { id: "overview", label: "Overview", icon: Activity, color: "blue" },
-            { id: "nodes", label: "BBB Meeting Nodes", icon: Server, color: "indigo" },
-            { id: "colleges", label: "Colleges & Quotas", icon: GraduationCap, color: "purple" },
-            { id: "recordings", label: "Recording & R2 Pipeline", icon: Video, color: "emerald" },
-            { id: "advisor", label: "Smart Capacity Advisor", icon: ShieldCheck, color: "amber" },
+            { id: "overview", label: "Overview", icon: Activity },
+            { id: "nodes", label: "BBB Meeting Nodes", icon: Server },
+            { id: "colleges", label: "Colleges & Quotas", icon: GraduationCap },
+            { id: "recordings", label: "Recording & R2 Pipeline", icon: Video },
+            { id: "advisor", label: "Smart Capacity Advisor", icon: ShieldCheck },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -372,22 +402,22 @@ export default function AeoraxDashboard() {
             </div>
           </div>
 
-          {/* Card 5: R2 Cloud Storage (Rose/Pink Gradient Glass) */}
+          {/* Card 5: Fleet Hardware Usage: RAM & Disk (Rose/Pink Gradient Glass) */}
           <div className="glass-card glass-hover card-theme-rose p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
             <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-all duration-300" />
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wider">
-                R2 Storage (Recordings)
+                Fleet RAM & Disk
               </span>
               <div className="p-2.5 rounded-xl bg-rose-600 text-white shadow-md shadow-rose-500/30 group-hover:scale-110 transition-transform duration-200">
                 <HardDrive className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
-              152 GB
+            <div className="text-2xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
+              {totalRamUsed.toFixed(1)} <span className="text-sm font-bold text-slate-500">/ {totalRamTotal} GB RAM</span>
             </div>
             <div className="text-xs font-bold text-rose-700 dark:text-rose-400 mt-2">
-              Zero Egress Fees
+              Disk: {totalDiskUsed.toFixed(0)} / {totalDiskTotal} GB NVMe
             </div>
           </div>
         </div>
@@ -432,29 +462,29 @@ export default function AeoraxDashboard() {
               </div>
             </div>
 
-            {/* Dedicated BBB Nodes Grid */}
+            {/* Dedicated BBB Nodes Grid with Detailed RAM & Disk Meters */}
             <div className="glass-card p-6 rounded-3xl space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Dedicated BigBlueButton Nodes</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Direct WebRTC IPv4 High-Performance Nodes (Cloudflare DNS-Only)
+                    Hardware Telemetry: Real-time CPU, RAM & NVMe Disk Allocation
                   </p>
                 </div>
                 <button
                   onClick={() => setActiveTab("nodes")}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold flex items-center space-x-1.5 bg-blue-50 dark:bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-500/20 transition-all hover:scale-105"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold flex items-center space-x-1.5 bg-blue-50 dark:bg-blue-500/10 px-3.5 py-1.5 rounded-xl border border-blue-200 dark:border-blue-500/20 transition-all hover:scale-105"
                 >
                   <span>Manage Fleet</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {nodes.map((node) => (
                   <div
                     key={node.id}
-                    className="glass-card glass-hover p-5 rounded-2xl flex flex-col justify-between space-y-3.5 group"
+                    className="glass-card glass-hover p-5 rounded-2xl flex flex-col justify-between space-y-4 group border border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-blue-300 dark:hover:border-blue-700"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -484,19 +514,73 @@ export default function AeoraxDashboard() {
                       </button>
                     </div>
 
+                    {/* Hardware Metrics Summary: CPU, Rooms, Students */}
                     <div className="grid grid-cols-3 gap-2 text-xs pt-3 border-t border-slate-200 dark:border-slate-800/80">
-                      <div className="bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
-                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">CPU Load</div>
+                      <div className="bg-slate-50/90 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] flex items-center space-x-1">
+                          <Cpu className="w-3 h-3 text-blue-500" />
+                          <span>CPU Load</span>
+                        </div>
                         <div className="text-slate-900 dark:text-white font-black text-sm mt-0.5">{node.cpu}%</div>
+                        <div className="text-[10px] text-slate-500">{node.steal}% Steal</div>
                       </div>
-                      <div className="bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
-                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Active Rooms</div>
+
+                      <div className="bg-slate-50/90 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] flex items-center space-x-1">
+                          <Video className="w-3 h-3 text-indigo-500" />
+                          <span>Active Rooms</span>
+                        </div>
                         <div className="text-slate-900 dark:text-white font-black text-sm mt-0.5">{node.meetings}</div>
+                        <div className="text-[10px] text-slate-500">{node.webcams} Webcams</div>
                       </div>
-                      <div className="bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
-                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Students / Cams</div>
-                        <div className="text-slate-900 dark:text-white font-black text-sm mt-0.5">
-                          {node.participants} / {node.webcams}
+
+                      <div className="bg-slate-50/90 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] flex items-center space-x-1">
+                          <Users className="w-3 h-3 text-emerald-500" />
+                          <span>Live Students</span>
+                        </div>
+                        <div className="text-slate-900 dark:text-white font-black text-sm mt-0.5">{node.participants}</div>
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Active Audio</div>
+                      </div>
+                    </div>
+
+                    {/* Dedicated RAM & Disk Progress Status */}
+                    <div className="space-y-2.5 pt-2">
+                      {/* RAM Memory Bar */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-600 dark:text-slate-400 font-semibold flex items-center space-x-1">
+                            <Database className="w-3.5 h-3.5 text-purple-500" />
+                            <span>Memory (RAM)</span>
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white font-mono">
+                            {node.ramUsedGb} / {node.ramTotalGb} GB ({node.ramPercent}%)
+                          </span>
+                        </div>
+                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700">
+                          <div
+                            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-300"
+                            style={{ width: `${node.ramPercent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* NVMe Disk Bar */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-600 dark:text-slate-400 font-semibold flex items-center space-x-1">
+                            <HardDrive className="w-3.5 h-3.5 text-cyan-500" />
+                            <span>NVMe Disk Storage</span>
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white font-mono">
+                            {node.diskUsedGb} / {node.diskTotalGb} GB ({node.diskPercent}%)
+                          </span>
+                        </div>
+                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full transition-all duration-300"
+                            style={{ width: `${node.diskPercent}%` }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -507,14 +591,14 @@ export default function AeoraxDashboard() {
           </div>
         )}
 
-        {/* TAB 2: MEETING NODES TABLE */}
+        {/* TAB 2: MEETING NODES INVENTORY TABLE WITH RAM & DISK STATUS */}
         {activeTab === "nodes" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">BigBlueButton Nodes Inventory</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Manage high-performance dedicated media servers
+                  Detailed hardware telemetry: CPU, RAM memory, and NVMe disk quotas
                 </p>
               </div>
               <button className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold transition shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105">
@@ -530,9 +614,10 @@ export default function AeoraxDashboard() {
                     <th className="py-4 px-5">Server / FQDN</th>
                     <th className="py-4 px-5">Status</th>
                     <th className="py-4 px-5">CPU & Steal</th>
-                    <th className="py-4 px-5">Memory</th>
-                    <th className="py-4 px-5">Rooms</th>
-                    <th className="py-4 px-5">Students / Cams</th>
+                    <th className="py-4 px-5">RAM Memory</th>
+                    <th className="py-4 px-5">NVMe Disk</th>
+                    <th className="py-4 px-5">Rooms & Cams</th>
+                    <th className="py-4 px-5">Students</th>
                     <th className="py-4 px-5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -542,6 +627,7 @@ export default function AeoraxDashboard() {
                       <td className="py-4 px-5">
                         <div className="font-extrabold text-slate-900 dark:text-white">{node.name}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">{node.fqdn}</div>
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">{node.ip}</div>
                       </td>
                       <td className="py-4 px-5">
                         <span
@@ -558,12 +644,41 @@ export default function AeoraxDashboard() {
                         <div className="font-bold text-slate-900 dark:text-white">{node.cpu}% CPU</div>
                         <div className="text-slate-500">{node.steal}% Steal</div>
                       </td>
-                      <td className="py-4 px-5 font-mono text-xs font-bold text-slate-900 dark:text-white">
-                        {node.ram}% RAM
+
+                      {/* RAM Memory Column with Status Bar */}
+                      <td className="py-4 px-5">
+                        <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-900 dark:text-white">
+                          <span>{node.ramUsedGb} / {node.ramTotalGb} GB</span>
+                          <span className="text-purple-600 dark:text-purple-400">{node.ramPercent}%</span>
+                        </div>
+                        <div className="h-1.5 w-28 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-1.5 border border-slate-200/60 dark:border-slate-700">
+                          <div
+                            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"
+                            style={{ width: `${node.ramPercent}%` }}
+                          />
+                        </div>
                       </td>
-                      <td className="py-4 px-5 font-black text-slate-900 dark:text-white">{node.meetings}</td>
-                      <td className="py-4 px-5 font-mono text-xs">
-                        {node.participants} users ({node.webcams} cams)
+
+                      {/* NVMe Disk Column with Status Bar */}
+                      <td className="py-4 px-5">
+                        <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-900 dark:text-white">
+                          <span>{node.diskUsedGb} / {node.diskTotalGb} GB</span>
+                          <span className="text-cyan-600 dark:text-cyan-400">{node.diskPercent}%</span>
+                        </div>
+                        <div className="h-1.5 w-28 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-1.5 border border-slate-200/60 dark:border-slate-700">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full"
+                            style={{ width: `${node.diskPercent}%` }}
+                          />
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-5">
+                        <div className="font-black text-slate-900 dark:text-white">{node.meetings} Rooms</div>
+                        <div className="text-xs text-slate-500">{node.webcams} active cams</div>
+                      </td>
+                      <td className="py-4 px-5 font-mono text-xs font-bold text-slate-900 dark:text-white">
+                        {node.participants} users
                       </td>
                       <td className="py-4 px-5 text-right">
                         <button
@@ -749,10 +864,10 @@ export default function AeoraxDashboard() {
 
               <div className="p-5 rounded-2xl bg-slate-900 dark:bg-slate-950 text-slate-200 font-mono text-xs space-y-2 border border-slate-800 shadow-md">
                 <div className="text-blue-400 font-black">[DIAGNOSTIC SNAPSHOT]</div>
-                <div>Node 1: CPU=48.2% | Steal=0.2% | Rooms=8  | Cams=42  -&gt; STATUS: NOMINAL</div>
-                <div>Node 2: CPU=62.7% | Steal=0.4% | Rooms=11 | Cams=68  -&gt; STATUS: ELEVATED (Monitor)</div>
-                <div>Node 3: CPU=34.0% | Steal=0.1% | Rooms=5  | Cams=25  -&gt; STATUS: NOMINAL</div>
-                <div>Node 4: CPU=12.1% | Steal=0.1% | Rooms=1  | Cams=2   -&gt; STATUS: DRAINING</div>
+                <div>Node 1: CPU=48.2% | RAM=58.4% (9.3/16 GB) | Disk=42% (42/100 GB) | Cams=42 -&gt; STATUS: NOMINAL</div>
+                <div>Node 2: CPU=62.7% | RAM=64.1% (10.3/16 GB)| Disk=54.5% (54.5/100 GB) | Cams=68 -&gt; STATUS: ELEVATED (Monitor)</div>
+                <div>Node 3: CPU=34.0% | RAM=42.0% (13.4/32 GB)| Disk=28% (56/200 GB) | Cams=25 -&gt; STATUS: NOMINAL</div>
+                <div>Node 4: CPU=12.1% | RAM=28.0% (4.5/16 GB) | Disk=35% (35/100 GB) | Cams=2  -&gt; STATUS: DRAINING</div>
                 <div className="text-emerald-400 font-black mt-2">&gt;&gt; OVERALL FLEET HEALTH SCORE: 92/100 (HEALTHY)</div>
               </div>
             </div>
