@@ -1,0 +1,42 @@
+---
+- name: Ensure UFW is installed
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+
+- name: Allow SSH port
+  community.general.ufw:
+    rule: allow
+    port: "{{ allowed_ssh_port | default(22) }}"
+    proto: tcp
+
+- name: Allow HTTP (TCP 80)
+  community.general.ufw:
+    rule: allow
+    port: 80
+    proto: tcp
+
+- name: Allow HTTPS (TCP 443)
+  community.general.ufw:
+    rule: allow
+    port: 443
+    proto: tcp
+
+- name: Allow BBB WebSocket (TCP 7443)
+  community.general.ufw:
+    rule: allow
+    port: 7443
+    proto: tcp
+
+- name: Allow WebRTC RTP media range (UDP 16384-32768)
+  community.general.ufw:
+    rule: allow
+    port: 16384:32768
+    proto: udp
+
+- name: Enable UFW firewall with default deny incoming
+  community.general.ufw:
+    state: enabled
+    default: deny
+    direction: incoming

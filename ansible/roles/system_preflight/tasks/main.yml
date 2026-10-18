@@ -1,0 +1,43 @@
+---
+- name: Assert Target OS is Ubuntu 22.04 LTS (Jammy)
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == "Ubuntu"
+      - ansible_distribution_version == "22.04"
+    fail_msg: >
+      [FAIL] BigBlueButton 3.0 requires Ubuntu 22.04 LTS (Jammy).
+      Current host is {{ ansible_distribution }} {{ ansible_distribution_version }}.
+
+- name: Assert 64-bit x86_64 architecture
+  ansible.builtin.assert:
+    that:
+      - ansible_architecture == "x86_64"
+    fail_msg: "[FAIL] BigBlueButton requires 64-bit x86_64 CPU architecture."
+
+- name: Assert Minimum 8 Dedicated vCPUs
+  ansible.builtin.assert:
+    that:
+      - ansible_processor_vcpus >= 8
+    fail_msg: >
+      [FAIL] Insufficient CPU cores: {{ ansible_processor_vcpus }} found, minimum 8 dedicated vCPUs required.
+
+- name: Assert Minimum 14 GB RAM
+  ansible.builtin.assert:
+    that:
+      - ansible_memtotal_mb >= 14000
+    fail_msg: >
+      [FAIL] Insufficient RAM: {{ ansible_memtotal_mb }} MB found, minimum 14000 MB required.
+
+- name: Check DNS resolution for Node FQDN
+  ansible.builtin.command: "getent ahosts {{ inventory_hostname }}"
+  register: dns_check
+  changed_when: false
+  failed_when: dns_check.rc != 0
+
+- name: Confirm DNS resolves to public host IP
+  ansible.builtin.assert:
+    that:
+      - ansible_default_ipv4.address in dns_check.stdout
+    fail_msg: >
+      [FAIL] DNS mismatch! FQDN {{ inventory_hostname }} does not resolve to host IP {{ ansible_default_ipv4.address }}.
+      Ensure Cloudflare record is DNS-Only (Grey Cloud).

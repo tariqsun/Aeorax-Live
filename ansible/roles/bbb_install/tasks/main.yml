@@ -1,0 +1,37 @@
+---
+- name: Check if BigBlueButton is already installed
+  ansible.builtin.command: which bbb-conf
+  register: bbb_installed_check
+  changed_when: false
+  failed_when: false
+
+- name: Download official bbb-install script
+  ansible.builtin.get_url:
+    url: https://ubuntu.bigbluebutton.org/bbb-install-2.7.sh
+    dest: /root/bbb-install-2.7.sh
+    mode: "0755"
+  when: bbb_installed_check.rc != 0
+
+- name: Execute official BigBlueButton 3.0 installation
+  ansible.builtin.command: >
+    /root/bbb-install-2.7.sh
+    -v {{ bbb_target_version | default('jammy-300') }}
+    -s {{ inventory_hostname }}
+    -e {{ admin_email }}
+  when: bbb_installed_check.rc != 0
+  async: 2400
+  poll: 15
+
+- name: Run BigBlueButton verification check
+  ansible.builtin.command: bbb-conf --check
+  register: bbb_check_output
+  changed_when: false
+
+- name: Extract BBB Shared Secret and URL
+  ansible.builtin.command: bbb-conf --secret
+  register: bbb_secret_output
+  changed_when: false
+
+- name: Display Node Credentials for Scalelite Registration
+  ansible.builtin.debug:
+    msg: "{{ bbb_secret_output.stdout_lines }}"

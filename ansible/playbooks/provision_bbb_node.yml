@@ -1,0 +1,29 @@
+---
+# Aeorax Live — BigBlueButton Dedicated Node Provisioning Playbook
+# Target OS: Ubuntu 22.04 LTS (Jammy)
+# Target Version: BigBlueButton 3.0.39 Stable
+# Reference Date: 2026-10-18
+
+- name: Provision Dedicated BigBlueButton 3.0 Node for Aeorax Live
+  hosts: bbb_nodes
+  become: true
+  gather_facts: true
+
+  vars:
+    bbb_target_version: "jammy-300"
+    bbb_version_check: "3.0.39"
+    admin_email: "admin@aeoraxlive.com"
+    allowed_ssh_port: 22
+
+  roles:
+    - role: system_preflight
+      tags: [preflight]
+
+    - role: firewall_hardening
+      tags: [firewall, security]
+
+    - role: bbb_install
+      tags: [bbb, install]
+
+    - role: telemetry_exporters
+      tags: [telemetry, monitoring]

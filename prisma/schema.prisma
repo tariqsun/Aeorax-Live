@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  COLLEGE_ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum CollegeStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum RoomStatus {
+  IDLE
+  RUNNING
+  ENDED
+}
+
+enum SessionStatus {
+  ACTIVE
+  ENDED
+  FAILED
+}
+
+enum NodeStatus {
+  PENDING
+  PROVISIONING
+  READY
+  DRAIN
+  OFFLINE
+  FAILED
+}
+
+enum NodePoolType {
+  SHARED
+  DEDICATED
+}
+
+enum RecordingStatus {
+  PROCESSING
+  IMPORTED
+  ARCHIVED
+  PRUNED
+  FAILED
+}
+
+model College {
+  id                         String         @id @default(cuid())
+  name                       String
+  slug                       String         @unique
+  contactEmail               String
+  contactPhone               String?
+  status                     CollegeStatus  @default(ACTIVE)
+  apiKey                     String         @unique @default(cuid())
+  apiSecret                  String
+  maxConcurrentRooms         Int            @default(5)
+  maxParticipantsPerRoom     Int            @default(100)
+  maxTotalParticipants       Int            @default(250)
+  recordingStorageLimitBytes BigInt         @default(53687091200) // 50 GB default
+  recordingRetentionDays     Int            @default(90)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+
+  users                      User[]
+  rooms                      Room[]
+  sessions                   Session[]
+  recordings                 Recording[]
+  quotaLedgers               QuotaLedger[]
+  auditLogs                  AuditLog[]
+  dedicatedPools             NodePool[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+model User {
+  id           String      @id @default(cuid())
+  collegeId    String?
+  role         Role        @default(STUDENT)
+  name         String
+  email        String      @unique
+  passwordHash String
+  avatarUrl    String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  college      College?    @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdRooms Room[]      @relation("RoomCreator")
+  sessions     Session[]   @relation("SessionModerator")
+  auditLogs    AuditLog[]
+
+  @@index([collegeId])
+  @@index([email])
+}
+
+model Room {
+  id              String       @id @default(cuid())
+  collegeId       String
+  creatorId       String
+  name            String
+  slug            String
+  attendeePw      String       @default("ap")
+  moderatorPw     String       @default("mp")
+  maxParticipants Int          @default(100)
+  recordEnabled   Boolean      @default(true)
+  muteOnStart     Boolean      @default(true)
+  webcamLocked    Boolean      @default(false)
+  status          RoomStatus   @default(IDLE)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  college         College      @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  creator         User         @relation("RoomCreator", fields: [creatorId], references: [id])
+  sessions        Session[]
+  recordings      Recording[]
+
+  @@unique([collegeId, slug])
+  @@index([collegeId])
+}
+
+model NodePool {
+  id          String       @id @default(cuid())
+  name        String
+  type        NodePoolType @default(SHARED)
+  collegeId   String?
+  description String?
+  createdAt   DateTime     @default(now())
+
+  college     College?     @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  nodes       Node[]
+
+  @@index([type])
+}
+
+model Node {
+  id                     String       @id @default(cuid())
+  poolId                 String
+  name                   String
+  fqdn                   String       @unique
+  ipAddress              String
+  sshPort                Int          @default(22)
+  status                 NodeStatus   @default(PENDING)
+  cpuCores               Int          @default(8)
+  ramGb                  Int          @default(16)
+  diskGb                 Int          @default(100)
+  bbbVersion             String       @default("3.0.39")
+  scaleliteRegistered    Boolean      @default(false)
+  activeMeetingsCount    Int          @default(0)
+  activeParticipantsCount Int         @default(0)
+  cpuUsagePercent        Float        @default(0.0)
+  lastHeartbeatAt        DateTime?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  pool                   NodePool     @relation(fields: [poolId], references: [id])
+  sessions               Session[]
+
+  @@index([status])
+  @@index([poolId])
+}
+
+model Session {
+  id                 String        @id @default(cuid())
+  collegeId          String
+  roomId             String
+  nodeId             String?
+  moderatorId        String
+  bbbMeetingId       String        @unique
+  startedAt          DateTime      @default(now())
+  endedAt            DateTime?
+  peakParticipants   Int           @default(0)
+  status             SessionStatus @default(ACTIVE)
+
+  college            College       @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  room               Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  node               Node?         @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  moderator          User          @relation("SessionModerator", fields: [moderatorId], references: [id])
+  recordings         Recording[]
+
+  @@index([collegeId])
+  @@index([roomId])
+  @@index([status])
+}
+
+model Recording {
+  id              String          @id @default(cuid())
+  collegeId       String
+  roomId          String
+  sessionId       String?
+  bbbRecordId     String          @unique
+  title           String
+  durationSeconds Int             @default(0)
+  sizeBytes       BigInt          @default(0)
+  r2Key           String?
+  r2Bucket        String?
+  checksumSha256  String?
+  status          RecordingStatus @default(PROCESSING)
+  playableUrl     String?
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+  expiresAt       DateTime?
+  prunedAt        DateTime?
+  createdAt       DateTime        @default(now())
+
+  college         College         @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  room            Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  session         Session?        @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([collegeId])
+  @@index([status])
+}
+
+model QuotaLedger {
+  id                         String   @id @default(cuid())
+  collegeId                  String
+  eventType                  String
+  roomsDelta                 Int      @default(0)
+  participantsDelta          Int      @default(0)
+  storageDeltaBytes          BigInt   @default(0)
+  activeRoomsSnapshot        Int
+  activeParticipantsSnapshot Int
+  timestamp                  DateTime @default(now())
+
+  college                    College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([collegeId, timestamp])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  collegeId  String?
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  ipAddress  String?
+  userAgent  String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  college    College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([collegeId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  isSecret    Boolean  @default(false)
+  description String?
+  updatedAt   DateTime @updatedAt
+}

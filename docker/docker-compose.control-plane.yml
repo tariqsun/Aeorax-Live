@@ -1,0 +1,148 @@
+# Aeorax Live — Control Plane Production Compose Manifest (for Coolify)
+# Reference: 2026-10-18
+# Pinned Components: PostgreSQL 16, Redis 7, Scalelite v1.4, Prometheus v2.55, Grafana 11.3
+
+services:
+  # 1. Aeorax Live Web App & API Gateway
+  aeorax-web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: aeorax-live-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: "postgresql://${AEORAX_DB_USER}:${AEORAX_DB_PASSWORD}@postgres:5432/${AEORAX_DB_NAME}?schema=public"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+      SCALELITE_API_URL: "http://scalelite-api:3000/bigbluebutton/api"
+      SCALELITE_SHARED_SECRET: "${LOADBALANCER_SECRET}"
+      NEXTAUTH_URL: "https://${PANEL_DOMAIN:-panel.aeoraxlive.com}"
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET}"
+      R2_ACCOUNT_ID: "${R2_ACCOUNT_ID}"
+      R2_ACCESS_KEY_ID: "${R2_ACCESS_KEY_ID}"
+      R2_SECRET_ACCESS_KEY: "${R2_SECRET_ACCESS_KEY}"
+      R2_BUCKET_NAME: "${R2_BUCKET_NAME:-aeorax-recordings}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # 2. Backing PostgreSQL Service (Hosting both aeorax_db and scalelite_db)
+  postgres:
+    image: postgres:16-alpine
+    container_name: aeorax-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: "${AEORAX_DB_NAME}:${AEORAX_DB_USER}:${AEORAX_DB_PASSWORD},${SCALELITE_DB_NAME}:${SCALELITE_DB_USER}:${SCALELITE_DB_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 3. Redis Instance for Scalelite & Quota Leases
+  redis:
+    image: redis:7-alpine
+    container_name: aeorax-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 4. Scalelite Load Balancer API
+  scalelite-api:
+    image: blindsidenetworks/scalelite:v1.4.0
+    container_name: aeorax-scalelite-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://${SCALELITE_DB_USER}:${SCALELITE_DB_PASSWORD}@postgres:5432/${SCALELITE_DB_NAME}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      SECRET_KEY_BASE: "${SCALELITE_SECRET_KEY_BASE}"
+      LOADBALANCER_SECRET: "${LOADBALANCER_SECRET}"
+      URL_HOST: "${GATEWAY_DOMAIN:-bbb.aeoraxlive.com}"
+      RECORDING_DISABLED: "false"
+    volumes:
+      - scalelite_spool:/var/bigbluebutton/spool
+      - scalelite_published:/var/bigbluebutton/published
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # 5. Scalelite Periodic Status Poller
+  scalelite-poller:
+    image: blindsidenetworks/scalelite:v1.4.0
+    container_name: aeorax-scalelite-poller
+    restart: unless-stopped
+    command: ["bin/start-poller"]
+    environment:
+      DATABASE_URL: "postgresql://${SCALELITE_DB_USER}:${SCALELITE_DB_PASSWORD}@postgres:5432/${SCALELITE_DB_NAME}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      POLL_INTERVAL: 15
+    depends_on:
+      - scalelite-api
+
+  # 6. Scalelite Recording Importer (Consumes finished recordings)
+  scalelite-importer:
+    image: blindsidenetworks/scalelite:v1.4.0
+    container_name: aeorax-scalelite-importer
+    restart: unless-stopped
+    command: ["bin/start-recording-importer"]
+    environment:
+      DATABASE_URL: "postgresql://${SCALELITE_DB_USER}:${SCALELITE_DB_PASSWORD}@postgres:5432/${SCALELITE_DB_NAME}"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+    volumes:
+      - scalelite_spool:/var/bigbluebutton/spool
+      - scalelite_published:/var/bigbluebutton/published
+    depends_on:
+      - scalelite-api
+
+  # 7. Telemetry & Monitoring: Prometheus
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: aeorax-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  # 8. Monitoring Dashboard: Grafana
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: aeorax-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  scalelite_spool:
+  scalelite_published:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'aeorax-control-plane'
+    static_configs:
+      - targets: ['aeorax-web:3000']
+
+  - job_name: 'bbb-nodes-system'
+    # Scrapes node_exporter from dedicated BigBlueButton VPS hosts
+    static_configs:
+      - targets:
+          - 'node1.aeoraxlive.com:9100'
+          - 'node2.aeoraxlive.com:9100'
+
+  - job_name: 'bbb-internal-exporter'
+    # Scrapes BBB Prometheus exporter (active rooms, video users, listeners)
+    static_configs:
+      - targets:
+          - 'node1.aeoraxlive.com:9688'
+          - 'node2.aeoraxlive.com:9688'
