@@ -1,0 +1,19 @@
+---
+- name: Ensure agent directory exists
+  ansible.builtin.file:
+    path: /opt/aeorax-agent
+    state: directory
+    mode: "0755"
+
+- name: Deploy Aeorax Node Telemetry Agent script
+  ansible.builtin.copy:
+    src: ../../../scripts/install-node.sh
+    dest: /opt/aeorax-agent/install-node.sh
+    mode: "0755"
+
+- name: Enable and start aeorax-agent service if configured
+  ansible.builtin.systemd:
+    name: aeorax-agent
+    enabled: true
+    state: started
+  ignore_errors: true

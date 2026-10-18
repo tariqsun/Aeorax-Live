@@ -33,6 +33,7 @@ import {
   Globe,
   X,
   AlertTriangle,
+  Terminal,
 } from "lucide-react";
 
 interface NodeData {
@@ -120,6 +121,18 @@ export default function AeoraxDashboard() {
   });
   const [manualNodeTestStatus, setManualNodeTestStatus] = useState<"idle" | "testing" | "success">("idle");
   const [nodeAddSuccessMsg, setNodeAddSuccessMsg] = useState<string | null>(null);
+
+  // 1-Click Fresh VPS Installer Command State
+  const [quickInstallFqdn, setQuickInstallFqdn] = useState<string>("node1.aeoraxlive.com");
+  const [quickInstallEmail, setQuickInstallEmail] = useState<string>("admin@aeoraxlive.com");
+  const [isCommandCopied, setIsCommandCopied] = useState<boolean>(false);
+
+  const copyInstallerCommand = () => {
+    const cmd = `curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn ${quickInstallFqdn} --email ${quickInstallEmail} --panel https://master.nesthost.net`;
+    navigator.clipboard.writeText(cmd);
+    setIsCommandCopied(true);
+    setTimeout(() => setIsCommandCopied(false), 3000);
+  };
 
   const handleAddManualNode = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1173,6 +1186,96 @@ export default function AeoraxDashboard() {
                     <PlusCircle className="w-4 h-4" />
                     <span>+ Add Node (Manual DNS)</span>
                   </button>
+                </div>
+              </div>
+
+              {/* 1-CLICK UBUNTU VPS AUTO-INSTALLER & MONITORING AGENT CARD */}
+              <div className="glass-card p-5.5 rounded-3xl border border-purple-200/80 dark:border-purple-900/50 bg-gradient-to-br from-purple-500/5 via-slate-50/50 to-indigo-500/5 dark:from-purple-950/20 dark:via-slate-900/60 dark:to-indigo-950/20 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 rounded-2xl bg-purple-600 text-white shadow-md shadow-purple-500/20">
+                      <Terminal className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                          1-Click Fresh Ubuntu VPS Auto-Installer & Monitoring Agent
+                        </h4>
+                        <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                          Ubuntu 22.04 LTS
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Run this single command in your fresh VPS terminal. It installs BBB 3.0, Let's Encrypt SSL, UFW WebRTC firewall, and the real-time telemetry agent.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        placeholder="node1.aeoraxlive.com"
+                        value={quickInstallFqdn}
+                        onChange={(e) => setQuickInstallFqdn(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white w-48 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        title="Target Subdomain / FQDN"
+                      />
+                      <input
+                        type="email"
+                        placeholder="admin@aeoraxlive.com"
+                        value={quickInstallEmail}
+                        onChange={(e) => setQuickInstallEmail(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white w-44 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        title="SSL Admin Email"
+                      />
+                    </div>
+                    <button
+                      onClick={copyInstallerCommand}
+                      className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-purple-600 dark:hover:bg-purple-700 text-white text-xs font-bold transition shadow-md shadow-slate-900/10"
+                    >
+                      {isCommandCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-300">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Command</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Command Preview Display */}
+                <div className="relative group">
+                  <pre className="p-3.5 rounded-2xl bg-slate-950 text-slate-200 font-mono text-xs overflow-x-auto border border-slate-800 shadow-inner flex items-center justify-between">
+                    <code className="text-purple-300 selection:bg-purple-600 selection:text-white">
+                      curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn {quickInstallFqdn || "node1.aeoraxlive.com"} --email {quickInstallEmail || "admin@aeoraxlive.com"} --panel https://master.nesthost.net
+                    </code>
+                  </pre>
+                </div>
+
+                {/* Feature Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                  <div className="flex items-center space-x-1.5">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>BigBlueButton 3.0.39 Stable</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Auto Let's Encrypt SSL</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>UFW WebRTC Media Firewall</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Aeorax Live Telemetry Daemon</span>
+                  </div>
                 </div>
               </div>
 
