@@ -15,6 +15,10 @@ import {
   Lock,
   Sun,
   Moon,
+  Sparkles,
+  Layers,
+  CheckCircle,
+  Cpu,
 } from "lucide-react";
 
 interface NodeData {
@@ -43,6 +47,7 @@ interface CollegeData {
   storageGb: number;
   storageLimitGb: number;
   status: "ACTIVE" | "TRIAL";
+  accentColor: "blue" | "purple" | "emerald" | "amber";
 }
 
 export default function AeoraxDashboard() {
@@ -50,7 +55,6 @@ export default function AeoraxDashboard() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    // Apply light theme by default or saved preference
     const savedTheme = (localStorage.getItem("aeorax-theme") as "light" | "dark") || "light";
     setTheme(savedTheme);
     if (savedTheme === "dark") {
@@ -71,7 +75,6 @@ export default function AeoraxDashboard() {
     }
   };
 
-  // Realistic sample demo data for visualization
   const [nodes, setNodes] = useState<NodeData[]>([
     {
       id: "node-1",
@@ -140,6 +143,7 @@ export default function AeoraxDashboard() {
       storageGb: 48,
       storageLimitGb: 200,
       status: "ACTIVE",
+      accentColor: "blue",
     },
     {
       id: "col-2",
@@ -153,6 +157,7 @@ export default function AeoraxDashboard() {
       storageGb: 32,
       storageLimitGb: 100,
       status: "ACTIVE",
+      accentColor: "purple",
     },
     {
       id: "col-3",
@@ -166,6 +171,7 @@ export default function AeoraxDashboard() {
       storageGb: 64,
       storageLimitGb: 150,
       status: "ACTIVE",
+      accentColor: "emerald",
     },
     {
       id: "col-4",
@@ -179,6 +185,7 @@ export default function AeoraxDashboard() {
       storageGb: 8,
       storageLimitGb: 25,
       status: "TRIAL",
+      accentColor: "amber",
     },
   ];
 
@@ -198,23 +205,25 @@ export default function AeoraxDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#07090e] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* Top Navigation */}
-      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#0c101a]/90 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-xs">
+      {/* Top Navigation Bar with Frosted Glass Effect */}
+      <header className="border-b border-slate-200/90 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c101a]/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-xs">
         <div className="flex items-center space-x-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-bold text-white text-xl shadow-md shadow-blue-500/25">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center font-black text-white text-xl shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-transform duration-200">
             A
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="font-bold text-lg text-slate-900 dark:text-white tracking-tight">Aeorax Live</h1>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 font-semibold">
+              <h1 className="font-extrabold text-xl text-slate-900 dark:text-white tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-300 bg-clip-text text-transparent">
+                Aeorax Live
+              </h1>
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-100/80 dark:bg-blue-500/10 text-blue-800 dark:text-blue-300 border border-blue-300/80 dark:border-blue-500/20 font-bold tracking-wide">
                 Control Plane
               </span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 font-semibold">
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100/80 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-500/20 font-bold tracking-wide">
                 BBB 3.0.39 Stable
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Managed BigBlueButton Multi-Tenant Platform for Colleges
             </p>
           </div>
@@ -222,30 +231,31 @@ export default function AeoraxDashboard() {
 
         {/* Global Cluster State & Controls */}
         <div className="flex items-center space-x-5 text-sm">
-          <div className="flex items-center space-x-2 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800/40">
+          <div className="flex items-center space-x-2 bg-emerald-100/60 dark:bg-emerald-950/40 px-3.5 py-1.5 rounded-full border border-emerald-300/80 dark:border-emerald-800/40 shadow-xs">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-emerald-800 dark:text-emerald-300 font-semibold text-xs">Cluster: Online</span>
+            <span className="text-emerald-900 dark:text-emerald-300 font-bold text-xs tracking-wide">Cluster: Online</span>
           </div>
 
-          <div className="hidden md:block text-xs text-slate-500 dark:text-slate-400">
-            Target OS: <span className="text-slate-700 dark:text-slate-200 font-mono font-medium">Ubuntu 22.04 LTS</span>
+          <div className="hidden md:flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            <span>Target OS:</span>
+            <span className="text-slate-800 dark:text-slate-200 font-mono font-bold">Ubuntu 22.04 LTS</span>
           </div>
 
-          <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
 
-          {/* Theme Toggle Button */}
+          {/* Theme Toggle Button with Hover Glow */}
           <button
             onClick={toggleTheme}
             aria-label="Toggle Theme"
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition"
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all duration-200 shadow-xs hover:shadow-md transform hover:scale-105"
             title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
           >
-            {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            {theme === "light" ? <Moon className="w-4 h-4 text-indigo-600" /> : <Sun className="w-4 h-4 text-amber-400" />}
           </button>
 
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition border border-slate-200 dark:border-slate-800"
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition-all duration-200 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Sync</span>
@@ -255,14 +265,14 @@ export default function AeoraxDashboard() {
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
-        {/* Navigation Tabs */}
-        <div className="flex space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        {/* Navigation Tabs with Vibrant Active States */}
+        <div className="flex space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
           {[
-            { id: "overview", label: "Overview", icon: Activity },
-            { id: "nodes", label: "BBB Meeting Nodes", icon: Server },
-            { id: "colleges", label: "Colleges & Quotas", icon: GraduationCap },
-            { id: "recordings", label: "Recording & R2 Pipeline", icon: Video },
-            { id: "advisor", label: "Smart Capacity Advisor", icon: ShieldCheck },
+            { id: "overview", label: "Overview", icon: Activity, color: "blue" },
+            { id: "nodes", label: "BBB Meeting Nodes", icon: Server, color: "indigo" },
+            { id: "colleges", label: "Colleges & Quotas", icon: GraduationCap, color: "purple" },
+            { id: "recordings", label: "Recording & R2 Pipeline", icon: Video, color: "emerald" },
+            { id: "advisor", label: "Smart Capacity Advisor", icon: ShieldCheck, color: "amber" },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -270,107 +280,170 @@ export default function AeoraxDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
+                className={`flex items-center space-x-2.5 px-4.5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 transform ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 scale-102"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/80 dark:hover:bg-slate-800/60"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Top Highlights Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="card-panel p-5 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Active Colleges</span>
-              <GraduationCap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        {/* TOP METRIC HIGHLIGHTS — COLORFUL GLASS CARDS WITH HOVER LIFT & GLOW */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Card 1: Active Colleges (Blue Gradient Glass) */}
+          <div className="glass-card glass-hover card-theme-blue p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all duration-300" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider">
+                Active Colleges
+              </span>
+              <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/30 group-hover:scale-110 transition-transform duration-200">
+                <GraduationCap className="w-4 h-4" />
+              </div>
             </div>
-            <div className="text-3xl font-extrabold mt-2 text-slate-900 dark:text-white">{colleges.length}</div>
-            <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-1">100% Tenant Isolation</div>
+            <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
+              {colleges.length}
+            </div>
+            <div className="flex items-center space-x-1.5 text-xs font-bold text-blue-700 dark:text-blue-400 mt-2">
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>100% Tenant Isolation</span>
+            </div>
           </div>
 
-          <div className="card-panel p-5 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>BBB Nodes Fleet</span>
-              <Server className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          {/* Card 2: BBB Nodes Fleet (Purple Gradient Glass) */}
+          <div className="glass-card glass-hover card-theme-purple p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all duration-300" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider">
+                BBB Nodes Fleet
+              </span>
+              <div className="p-2.5 rounded-xl bg-purple-600 text-white shadow-md shadow-purple-500/30 group-hover:scale-110 transition-transform duration-200">
+                <Server className="w-4 h-4" />
+              </div>
             </div>
-            <div className="text-3xl font-extrabold mt-2 text-slate-900 dark:text-white">{nodes.length}</div>
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">3 Ready / 1 Draining</div>
+            <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
+              {nodes.length}
+            </div>
+            <div className="text-xs font-bold text-purple-700 dark:text-purple-400 mt-2">
+              3 Ready • 1 Draining
+            </div>
           </div>
 
-          <div className="card-panel p-5 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Active Classrooms</span>
-              <Video className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          {/* Card 3: Active Classrooms (Amber/Sunset Gradient Glass) */}
+          <div className="glass-card glass-hover card-theme-amber p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all duration-300" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
+                Active Classrooms
+              </span>
+              <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-md shadow-amber-500/30 group-hover:scale-110 transition-transform duration-200">
+                <Video className="w-4 h-4" />
+              </div>
             </div>
-            <div className="text-3xl font-extrabold mt-2 text-slate-900 dark:text-white">{totalRooms}</div>
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">Distributed via Scalelite</div>
+            <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
+              {totalRooms}
+            </div>
+            <div className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-2">
+              Distributed via Scalelite
+            </div>
           </div>
 
-          <div className="card-panel p-5 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Live Students / Cams</span>
-              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          {/* Card 4: Live Students / Cams (Emerald Gradient Glass) */}
+          <div className="glass-card glass-hover card-theme-emerald p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all duration-300" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
+                Live Students & Cams
+              </span>
+              <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-500/30 group-hover:scale-110 transition-transform duration-200">
+                <Users className="w-4 h-4" />
+              </div>
             </div>
-            <div className="text-3xl font-extrabold mt-2 text-slate-900 dark:text-white">{totalStudents}</div>
-            <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1">{totalCams} active video feeds</div>
+            <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
+              {totalStudents}
+            </div>
+            <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-2">
+              {totalCams} active video feeds
+            </div>
           </div>
 
-          <div className="card-panel p-5 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>R2 Cloud Storage</span>
-              <HardDrive className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+          {/* Card 5: R2 Cloud Storage (Rose/Pink Gradient Glass) */}
+          <div className="glass-card glass-hover card-theme-rose p-5 rounded-2xl relative overflow-hidden group cursor-pointer">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-all duration-300" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wider">
+                R2 Storage (Recordings)
+              </span>
+              <div className="p-2.5 rounded-xl bg-rose-600 text-white shadow-md shadow-rose-500/30 group-hover:scale-110 transition-transform duration-200">
+                <HardDrive className="w-4 h-4" />
+              </div>
             </div>
-            <div className="text-3xl font-extrabold mt-2 text-slate-900 dark:text-white">152 GB</div>
-            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">Zero Egress Fees</div>
+            <div className="text-3xl font-black mt-3 text-slate-900 dark:text-white tracking-tight">
+              152 GB
+            </div>
+            <div className="text-xs font-bold text-rose-700 dark:text-rose-400 mt-2">
+              Zero Egress Fees
+            </div>
           </div>
         </div>
 
         {/* TAB 1: OVERVIEW */}
         {activeTab === "overview" && (
           <div className="space-y-6">
-            {/* SRE Advisor Banner */}
-            <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50/50 to-white dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 border border-blue-200 dark:border-blue-800/40 flex items-start justify-between shadow-xs">
-              <div className="flex items-start space-x-4">
-                <div className="p-3 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
-                  <Activity className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Smart Capacity Advisor: Nominal Load</h3>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 font-bold">
-                      HEALTHY
-                    </span>
+            {/* Smart Capacity Advisor Hero Glass Banner with Ambient Glow */}
+            <div className="glass-card glass-hover p-6 rounded-3xl relative overflow-hidden border border-blue-200/90 dark:border-blue-800/40 bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-purple-50/50 dark:from-blue-950/40 dark:via-slate-900/80 dark:to-indigo-950/40 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300">
+              <div className="flex items-start justify-between flex-wrap gap-4">
+                <div className="flex items-start space-x-4">
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-transform">
+                    <Activity className="w-7 h-7" />
                   </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
-                    Current aggregate node utilization is 52.4%. All active meeting streams and webcams are operating with low jitter (&lt;12ms) and 0% packet loss.
-                  </p>
-                  <div className="flex items-center space-x-4 text-xs text-slate-500 dark:text-slate-400 mt-3 font-mono">
-                    <span>Active BBB Pool: 3 Ready Nodes</span>
-                    <span>•</span>
-                    <span>Max Concurrent Capacity: ~600 Students</span>
-                    <span>•</span>
-                    <span>Recommendation: No Scaling Needed</span>
+                  <div>
+                    <div className="flex items-center space-x-2.5">
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">
+                        Smart Capacity Advisor: Nominal Cluster Load
+                      </h3>
+                      <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 font-black tracking-wide shadow-xs">
+                        HEALTHY
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-3xl">
+                      Current aggregate node fleet utilization is <strong className="text-blue-600 dark:text-blue-400 font-bold">52.4%</strong>. All active WebRTC meeting streams and webcams are operating with ultra-low jitter (&lt;12ms) and 0% packet loss.
+                    </p>
+                    <div className="flex items-center space-x-4 text-xs font-mono font-bold text-slate-500 dark:text-slate-400 mt-3.5">
+                      <span className="bg-white/80 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                        Active Pool: 3 Ready Nodes
+                      </span>
+                      <span>•</span>
+                      <span className="bg-white/80 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                        Max Concurrent Capacity: ~600 Students
+                      </span>
+                      <span>•</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-sans">
+                        ✓ No Scaling Action Required
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Nodes Quick List */}
-            <div className="card-panel p-6 rounded-2xl space-y-4">
+            {/* Dedicated BBB Nodes Grid */}
+            <div className="glass-card p-6 rounded-3xl space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base">Dedicated BigBlueButton Nodes</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Direct WebRTC IPv4 Nodes (Cloudflare DNS-Only)</p>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Dedicated BigBlueButton Nodes</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Direct WebRTC IPv4 High-Performance Nodes (Cloudflare DNS-Only)
+                  </p>
                 </div>
                 <button
                   onClick={() => setActiveTab("nodes")}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold flex items-center space-x-1"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold flex items-center space-x-1.5 bg-blue-50 dark:bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-500/20 transition-all hover:scale-105"
                 >
                   <span>Manage Fleet</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -381,48 +454,48 @@ export default function AeoraxDashboard() {
                 {nodes.map((node) => (
                   <div
                     key={node.id}
-                    className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-3"
+                    className="glass-card glass-hover p-5 rounded-2xl flex flex-col justify-between space-y-3.5 group"
                   >
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center space-x-2">
                           <span className="font-bold text-slate-900 dark:text-white text-sm">{node.name}</span>
                           <span
-                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                            className={`text-[10px] px-2.5 py-0.5 rounded-full font-black tracking-wide ${
                               node.status === "READY"
-                                ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/20"
-                                : "bg-amber-100 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-500/20"
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/20"
+                                : "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-300 dark:border-amber-500/20"
                             }`}
                           >
                             {node.status}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">{node.fqdn}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1">{node.fqdn}</div>
                       </div>
                       <button
                         onClick={() => toggleDrain(node.id)}
-                        className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition ${
+                        className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition-all duration-200 transform hover:scale-105 ${
                           node.status === "READY"
-                            ? "border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-transparent dark:hover:bg-amber-500/10"
-                            : "border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-emerald-500/10"
+                            ? "border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100"
+                            : "border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100"
                         }`}
                       >
                         {node.status === "READY" ? "Drain Node" : "Enable Node"}
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-xs pt-3 border-t border-slate-200 dark:border-slate-800">
-                      <div>
-                        <div className="text-slate-500 dark:text-slate-400 font-medium">CPU Load</div>
-                        <div className="text-slate-900 dark:text-white font-bold mt-0.5">{node.cpu}%</div>
+                    <div className="grid grid-cols-3 gap-2 text-xs pt-3 border-t border-slate-200 dark:border-slate-800/80">
+                      <div className="bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">CPU Load</div>
+                        <div className="text-slate-900 dark:text-white font-black text-sm mt-0.5">{node.cpu}%</div>
                       </div>
-                      <div>
-                        <div className="text-slate-500 dark:text-slate-400 font-medium">Active Rooms</div>
-                        <div className="text-slate-900 dark:text-white font-bold mt-0.5">{node.meetings}</div>
+                      <div className="bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Active Rooms</div>
+                        <div className="text-slate-900 dark:text-white font-black text-sm mt-0.5">{node.meetings}</div>
                       </div>
-                      <div>
-                        <div className="text-slate-500 dark:text-slate-400 font-medium">Students / Cams</div>
-                        <div className="text-slate-900 dark:text-white font-bold mt-0.5">
+                      <div className="bg-slate-50/80 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                        <div className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Students / Cams</div>
+                        <div className="text-slate-900 dark:text-white font-black text-sm mt-0.5">
                           {node.participants} / {node.webcams}
                         </div>
                       </div>
@@ -434,23 +507,25 @@ export default function AeoraxDashboard() {
           </div>
         )}
 
-        {/* TAB 2: MEETING NODES */}
+        {/* TAB 2: MEETING NODES TABLE */}
         {activeTab === "nodes" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">BigBlueButton Nodes Inventory</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Manage high-performance dedicated media servers</p>
+                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">BigBlueButton Nodes Inventory</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Manage high-performance dedicated media servers
+                </p>
               </div>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition shadow-md shadow-blue-500/20">
+              <button className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold transition shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105">
                 <PlusCircle className="w-4 h-4" />
                 <span>Add Node Wizard</span>
               </button>
             </div>
 
-            <div className="card-panel rounded-2xl overflow-hidden">
+            <div className="glass-card rounded-3xl overflow-hidden shadow-sm">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 uppercase font-bold tracking-wider">
+                <thead className="bg-slate-100/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 uppercase font-black tracking-wider">
                   <tr>
                     <th className="py-4 px-5">Server / FQDN</th>
                     <th className="py-4 px-5">Status</th>
@@ -463,37 +538,37 @@ export default function AeoraxDashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                   {nodes.map((node) => (
-                    <tr key={node.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
+                    <tr key={node.id} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/40 transition">
                       <td className="py-4 px-5">
-                        <div className="font-bold text-slate-900 dark:text-white">{node.name}</div>
+                        <div className="font-extrabold text-slate-900 dark:text-white">{node.name}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">{node.fqdn}</div>
                       </td>
                       <td className="py-4 px-5">
                         <span
-                          className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                          className={`text-xs px-2.5 py-1 rounded-full font-black ${
                             node.status === "READY"
-                              ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/20"
-                              : "bg-amber-100 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-500/20"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/20"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-300 dark:border-amber-500/20"
                           }`}
                         >
                           {node.status}
                         </span>
                       </td>
                       <td className="py-4 px-5 font-mono text-xs">
-                        <div className="font-semibold text-slate-900 dark:text-white">{node.cpu}% CPU</div>
+                        <div className="font-bold text-slate-900 dark:text-white">{node.cpu}% CPU</div>
                         <div className="text-slate-500">{node.steal}% Steal</div>
                       </td>
-                      <td className="py-4 px-5 font-mono text-xs font-semibold text-slate-900 dark:text-white">
+                      <td className="py-4 px-5 font-mono text-xs font-bold text-slate-900 dark:text-white">
                         {node.ram}% RAM
                       </td>
-                      <td className="py-4 px-5 font-bold text-slate-900 dark:text-white">{node.meetings}</td>
+                      <td className="py-4 px-5 font-black text-slate-900 dark:text-white">{node.meetings}</td>
                       <td className="py-4 px-5 font-mono text-xs">
                         {node.participants} users ({node.webcams} cams)
                       </td>
                       <td className="py-4 px-5 text-right">
                         <button
                           onClick={() => toggleDrain(node.id)}
-                          className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition ${
+                          className={`text-xs px-3.5 py-1.5 rounded-xl border font-bold transition-all duration-200 transform hover:scale-105 ${
                             node.status === "READY"
                               ? "border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-transparent dark:hover:bg-amber-500/10"
                               : "border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:bg-transparent dark:hover:bg-emerald-500/10"
@@ -510,91 +585,93 @@ export default function AeoraxDashboard() {
           </div>
         )}
 
-        {/* TAB 3: COLLEGES & QUOTAS */}
+        {/* TAB 3: COLLEGES & QUOTAS — COLORFUL CARDS WITH VIBRANT PROGRESS METERS */}
         {activeTab === "colleges" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">College Tenants & Quotas</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">College Tenants & Quotas</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   Enforce atomic server-side concurrent room and seat leases
                 </p>
               </div>
-              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition shadow-md shadow-blue-500/20">
+              <button className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold transition shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transform hover:scale-105">
                 <PlusCircle className="w-4 h-4" />
                 <span>Onboard College</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {colleges.map((col) => (
-                <div key={col.id} className="card-panel p-6 rounded-2xl space-y-4">
+                <div key={col.id} className="glass-card glass-hover p-6 rounded-3xl space-y-4 group">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-bold text-slate-900 dark:text-white text-base">{col.name}</h3>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-                        Slug: <span className="text-blue-600 dark:text-blue-400 font-semibold">{col.slug}</span>
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-lg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {col.name}
+                      </h3>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-1">
+                        Tenant Slug: <span className="text-blue-600 dark:text-blue-400 font-bold">{col.slug}</span>
                       </div>
                     </div>
-                    <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 font-bold">
+                    <span className="text-xs px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-500/10 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-500/20 font-black">
                       {col.plan}
                     </span>
                   </div>
 
-                  {/* Room Quota Progress */}
+                  {/* Room Quota Multi-stop Gradient Bar */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">Concurrent Classrooms</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="text-slate-600 dark:text-slate-400 font-semibold">Concurrent Classrooms</span>
+                      <span className="font-black text-slate-900 dark:text-white">
                         {col.activeRooms} / {col.maxRooms} rooms
                       </span>
                     </div>
-                    <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-3 w-full bg-slate-100 dark:bg-slate-800/90 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700">
                       <div
-                        className="h-full bg-blue-600 rounded-full transition-all"
+                        className="h-full bg-gradient-to-r from-blue-600 via-indigo-500 to-cyan-400 rounded-full transition-all duration-500 shadow-xs"
                         style={{ width: `${(col.activeRooms / col.maxRooms) * 100}%` }}
                       />
                     </div>
                   </div>
 
-                  {/* Student Seats Quota Progress */}
+                  {/* Student Seats Quota Multi-stop Gradient Bar */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">Concurrent Students</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="text-slate-600 dark:text-slate-400 font-semibold">Concurrent Students</span>
+                      <span className="font-black text-slate-900 dark:text-white">
                         {col.activeStudents} / {col.maxStudents} seats
                       </span>
                     </div>
-                    <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-3 w-full bg-slate-100 dark:bg-slate-800/90 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700">
                       <div
-                        className="h-full bg-indigo-600 rounded-full transition-all"
+                        className="h-full bg-gradient-to-r from-purple-600 via-pink-500 to-rose-400 rounded-full transition-all duration-500 shadow-xs"
                         style={{ width: `${(col.activeStudents / col.maxStudents) * 100}%` }}
                       />
                     </div>
                   </div>
 
-                  {/* Storage Quota */}
+                  {/* Storage Quota Multi-stop Gradient Bar */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500 dark:text-slate-400 font-medium">Cloudflare R2 Recording Storage</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="text-slate-600 dark:text-slate-400 font-semibold">Cloudflare R2 Recording Storage</span>
+                      <span className="font-black text-slate-900 dark:text-white">
                         {col.storageGb} / {col.storageLimitGb} GB
                       </span>
                     </div>
-                    <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-3 w-full bg-slate-100 dark:bg-slate-800/90 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700">
                       <div
-                        className="h-full bg-purple-600 rounded-full transition-all"
+                        className="h-full bg-gradient-to-r from-emerald-600 via-teal-500 to-green-400 rounded-full transition-all duration-500 shadow-xs"
                         style={{ width: `${(col.storageGb / col.storageLimitGb) * 100}%` }}
                       />
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <div className="flex items-center space-x-1.5">
-                      <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex items-center space-x-1.5 font-bold text-emerald-700 dark:text-emerald-400">
+                      <Lock className="w-3.5 h-3.5" />
                       <span>Isolated Moodle API Secret</span>
                     </div>
-                    <button className="text-blue-600 dark:text-blue-400 hover:underline font-semibold">
+                    <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 font-bold hover:underline">
                       Manage Keys →
                     </button>
                   </div>
@@ -604,46 +681,49 @@ export default function AeoraxDashboard() {
           </div>
         )}
 
-        {/* TAB 4: RECORDINGS */}
+        {/* TAB 4: RECORDINGS PIPELINE — COLORFUL STAGES */}
         {activeTab === "recordings" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Recording & Cloudflare R2 Pipeline</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">Recording & Cloudflare R2 Pipeline</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   Verified archival lifecycle with zero student data loss
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="card-panel p-5 rounded-2xl">
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass-card glass-hover card-theme-amber p-6 rounded-3xl">
+                <div className="text-xs font-black text-amber-900 dark:text-amber-300 uppercase tracking-wider">
                   1. Raw BBB Spool
                 </div>
-                <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">2 Pending</div>
-                <div className="text-xs text-slate-500 mt-1">Local capture on node</div>
+                <div className="text-3xl font-black text-slate-900 dark:text-white mt-2">2 Pending</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-1">Local capture on node</div>
               </div>
-              <div className="card-panel p-5 rounded-2xl">
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+
+              <div className="glass-card glass-hover card-theme-blue p-6 rounded-3xl">
+                <div className="text-xs font-black text-blue-900 dark:text-blue-300 uppercase tracking-wider">
                   2. Scalelite Importer
                 </div>
-                <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 mt-1.5">1 Ingesting</div>
-                <div className="text-xs text-slate-500 mt-1">Shared presentation spool</div>
+                <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mt-2">1 Ingesting</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-1">Shared presentation spool</div>
               </div>
-              <div className="card-panel p-5 rounded-2xl">
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+
+              <div className="glass-card glass-hover card-theme-emerald p-6 rounded-3xl">
+                <div className="text-xs font-black text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
                   3. Cloudflare R2 Archive
                 </div>
-                <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1.5">1,248 Verified</div>
-                <div className="text-xs text-slate-500 mt-1">SHA-256 Checksum Match</div>
+                <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2">1,248 Verified</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-1">SHA-256 Checksum Match</div>
               </div>
-              <div className="card-panel p-5 rounded-2xl">
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+
+              <div className="glass-card glass-hover card-theme-purple p-6 rounded-3xl">
+                <div className="text-xs font-black text-purple-900 dark:text-purple-300 uppercase tracking-wider">
                   4. Safety Retention
                 </div>
-                <div className="text-2xl font-extrabold text-purple-600 dark:text-purple-400 mt-1.5">48 Hours</div>
-                <div className="text-xs text-slate-500 mt-1">Gate before local purge</div>
+                <div className="text-3xl font-black text-purple-600 dark:text-purple-400 mt-2">48 Hours</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-1">Gate before local purge</div>
               </div>
             </div>
           </div>
@@ -652,32 +732,36 @@ export default function AeoraxDashboard() {
         {/* TAB 5: SMART CAPACITY ADVISOR */}
         {activeTab === "advisor" && (
           <div className="space-y-6">
-            <div className="card-panel p-6 rounded-2xl space-y-4">
-              <div className="flex items-center space-x-3">
-                <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="glass-card glass-hover p-6 rounded-3xl space-y-4">
+              <div className="flex items-center space-x-3.5">
+                <div className="p-3 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20">
+                  <ShieldCheck className="w-8 h-8" />
+                </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">SRE Capacity & Autoscaling Advisor</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                    SRE Capacity & Autoscaling Advisor
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                     Continuous telemetry heuristics & predictive bottleneck detection
                   </p>
                 </div>
               </div>
 
-              <div className="p-5 rounded-xl bg-slate-900 dark:bg-slate-950 text-slate-200 font-mono text-xs space-y-2 border border-slate-800">
-                <div className="text-blue-400 font-bold">[DIAGNOSTIC SNAPSHOT]</div>
+              <div className="p-5 rounded-2xl bg-slate-900 dark:bg-slate-950 text-slate-200 font-mono text-xs space-y-2 border border-slate-800 shadow-md">
+                <div className="text-blue-400 font-black">[DIAGNOSTIC SNAPSHOT]</div>
                 <div>Node 1: CPU=48.2% | Steal=0.2% | Rooms=8  | Cams=42  -&gt; STATUS: NOMINAL</div>
                 <div>Node 2: CPU=62.7% | Steal=0.4% | Rooms=11 | Cams=68  -&gt; STATUS: ELEVATED (Monitor)</div>
                 <div>Node 3: CPU=34.0% | Steal=0.1% | Rooms=5  | Cams=25  -&gt; STATUS: NOMINAL</div>
                 <div>Node 4: CPU=12.1% | Steal=0.1% | Rooms=1  | Cams=2   -&gt; STATUS: DRAINING</div>
-                <div className="text-emerald-400 font-bold mt-2">&gt;&gt; OVERALL FLEET HEALTH SCORE: 92/100 (HEALTHY)</div>
+                <div className="text-emerald-400 font-black mt-2">&gt;&gt; OVERALL FLEET HEALTH SCORE: 92/100 (HEALTHY)</div>
               </div>
             </div>
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101a] py-4 px-6 text-center text-xs text-slate-500">
+      {/* Footer with Subtle Glass Effect */}
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-[#0c101a]/70 backdrop-blur py-4 px-6 text-center text-xs text-slate-500 font-medium">
         Aeorax Live Managed BigBlueButton Control Plane • BigBlueButton 3.0.39 • PostgreSQL 16 • Redis 7 • Cloudflare R2
       </footer>
     </div>

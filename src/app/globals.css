@@ -44,42 +44,126 @@ body {
   min-height: 100vh;
 }
 
-/* Card Panel Styling */
-.card-panel {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+/* Base Glass Card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.dark .card-panel {
-  background-color: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(12px);
+.dark .glass-card {
+  background: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.4);
 }
 
-/* Glass Panel Styling */
-.glass-panel {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+/* Interactive Hover Lift & Glow */
+.glass-hover {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
 }
 
-.dark .glass-panel {
-  background-color: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+.glass-hover:hover {
+  transform: translateY(-4px);
 }
 
-.glow-blue {
-  box-shadow: 0 0 20px -3px rgba(37, 99, 235, 0.25);
+/* Colorful Card Variants - Light & Dark */
+
+/* Blue / Cyan */
+.card-theme-blue {
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid rgba(191, 219, 254, 0.8);
+}
+.dark .card-theme-blue {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(30, 58, 138, 0.2) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+.card-theme-blue:hover {
+  box-shadow: 0 12px 30px -5px rgba(59, 130, 246, 0.2);
+  border-color: rgba(96, 165, 250, 0.9);
 }
 
-.glow-emerald {
-  box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.25);
+/* Purple / Indigo */
+.card-theme-purple {
+  background: linear-gradient(135deg, rgba(245, 243, 255, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid rgba(221, 214, 254, 0.8);
+}
+.dark .card-theme-purple {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(88, 28, 135, 0.2) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+.card-theme-purple:hover {
+  box-shadow: 0 12px 30px -5px rgba(168, 85, 247, 0.2);
+  border-color: rgba(192, 132, 252, 0.9);
 }
 
-.glow-amber {
-  box-shadow: 0 0 20px -3px rgba(245, 158, 11, 0.25);
+/* Amber / Orange */
+.card-theme-amber {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.6) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid rgba(253, 230, 138, 0.85);
+}
+.dark .card-theme-amber {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(120, 53, 15, 0.2) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+.card-theme-amber:hover {
+  box-shadow: 0 12px 30px -5px rgba(245, 158, 11, 0.2);
+  border-color: rgba(251, 191, 36, 0.9);
+}
+
+/* Emerald / Teal */
+.card-theme-emerald {
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.85) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid rgba(167, 243, 208, 0.8);
+}
+.dark .card-theme-emerald {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(6, 78, 59, 0.2) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.card-theme-emerald:hover {
+  box-shadow: 0 12px 30px -5px rgba(16, 185, 129, 0.2);
+  border-color: rgba(52, 211, 153, 0.9);
+}
+
+/* Rose / Pink */
+.card-theme-rose {
+  background: linear-gradient(135deg, rgba(255, 241, 242, 0.85) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid rgba(254, 205, 211, 0.8);
+}
+.dark .card-theme-rose {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(136, 19, 55, 0.2) 100%);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+}
+.card-theme-rose:hover {
+  box-shadow: 0 12px 30px -5px rgba(244, 63, 94, 0.2);
+  border-color: rgba(251, 113, 133, 0.9);
+}
+
+/* Subtle Shimmer Animation */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.shimmer-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-effect::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 3s infinite;
 }
