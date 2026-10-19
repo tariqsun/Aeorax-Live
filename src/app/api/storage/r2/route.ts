@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   testR2Connection,
   createPresignedUploadUrl,
+  createPresignedDownloadUrl,
   listR2Objects,
   uploadObjectToR2,
   deleteObjectFromR2,
@@ -67,6 +68,23 @@ export async function POST(req: NextRequest) {
         key,
         contentType || "application/octet-stream",
         expiresInSeconds ? Number(expiresInSeconds) : 900
+      );
+
+      return NextResponse.json({
+        success: true,
+        ...presigned,
+      });
+    }
+
+    if (action === "presign-download") {
+      const { key, expiresInSeconds } = body;
+      if (!key) {
+        return NextResponse.json({ success: false, error: "Object key is required" }, { status: 400 });
+      }
+
+      const presigned = await createPresignedDownloadUrl(
+        key,
+        expiresInSeconds ? Number(expiresInSeconds) : 3600
       );
 
       return NextResponse.json({

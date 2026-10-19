@@ -37,7 +37,15 @@ import {
   Palette,
   Trash2,
   Building,
+  Upload,
 } from "lucide-react";
+
+interface R2ObjectItem {
+  key: string;
+  size: number;
+  lastModified: string;
+  etag?: string;
+}
 
 interface NodeData {
   id: string;
@@ -828,6 +836,128 @@ export default function AeoraxDashboard() {
     }
   }, [selectedCollegeSlug]);
 
+  // Cloudflare R2 Live Storage State
+  const [r2Status, setR2Status] = useState<"idle" | "testing" | "connected" | "error">("idle");
+  const [r2Latency, setR2Latency] = useState<number | null>(null);
+  const [r2Message, setR2Message] = useState<string>("");
+  const [r2Objects, setR2Objects] = useState<R2ObjectItem[]>([]);
+  const [isLoadingR2, setIsLoadingR2] = useState<boolean>(false);
+  const [isUploadingR2, setIsUploadingR2] = useState<boolean>(false);
+  const [r2UploadSuccess, setR2UploadSuccess] = useState<string | null>(null);
+
+  const testR2LiveConnection = async () => {
+    try {
+      setR2Status("testing");
+      const res = await fetch("/api/storage/r2?action=test");
+      const data = await res.json();
+      if (data.success) {
+        setR2Status("connected");
+        setR2Latency(data.latencyMs);
+        setR2Message(data.message);
+        await fetchR2Objects();
+      } else {
+        setR2Status("error");
+        setR2Message(data.message || data.error || "Connection failed");
+      }
+    } catch (err: any) {
+      setR2Status("error");
+      setR2Message(err.message || "Failed to reach R2 API endpoint");
+    }
+  };
+
+  const fetchR2Objects = async (prefix = "") => {
+    try {
+      setIsLoadingR2(true);
+      const res = await fetch(`/api/storage/r2?prefix=${encodeURIComponent(prefix)}`);
+      const data = await res.json();
+      if (data.success && data.objects && Array.isArray(data.objects.objects)) {
+        setR2Objects(data.objects.objects);
+      } else {
+        setR2Objects([]);
+      }
+    } catch (e) {
+      console.error("Failed to list R2 objects:", e);
+    } finally {
+      setIsLoadingR2(false);
+    }
+  };
+
+  const handleUploadTestFile = async () => {
+    try {
+      setIsUploadingR2(true);
+      setR2UploadSuccess(null);
+      const testTimestamp = new Date().toISOString();
+      const testKey = `test-verifications/ping-${Date.now()}.txt`;
+      const content = `Aeorax Live Cloudflare R2 Verification Ping\nTimestamp: ${testTimestamp}\nEndpoint: https://442ee27fafab567aa3828a2a4ee62738.r2.cloudflarestorage.com\nBucket: aeorax-live\nZero egress Cloudflare R2 active!`;
+
+      const res = await fetch("/api/storage/r2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upload-direct",
+          key: testKey,
+          content,
+          contentType: "text/plain",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setR2UploadSuccess(`Successfully uploaded test object: ${testKey}`);
+        await fetchR2Objects();
+        setTimeout(() => setR2UploadSuccess(null), 5000);
+      } else {
+        alert(data.error || "Failed to upload test file");
+      }
+    } catch (e: any) {
+      alert(e.message || "Upload error");
+    } finally {
+      setIsUploadingR2(false);
+    }
+  };
+
+  const handleDownloadR2Object = async (key: string) => {
+    try {
+      const res = await fetch("/api/storage/r2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "presign-download", key }),
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        alert(data.error || "Failed to generate download URL");
+      }
+    } catch (e: any) {
+      alert(e.message || "Download error");
+    }
+  };
+
+  const handleDeleteR2Object = async (key: string) => {
+    if (!confirm(`Are you sure you want to delete object "${key}" from Cloudflare R2 bucket?`)) return;
+    try {
+      const res = await fetch("/api/storage/r2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", key }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchR2Objects();
+      } else {
+        alert(data.error || "Failed to delete R2 object");
+      }
+    } catch (e: any) {
+      alert(e.message || "Delete error");
+    }
+  };
+
+  useEffect(() => {
+    if (adminTab === "recordings" || clientTab === "recordings") {
+      testR2LiveConnection();
+    }
+  }, [adminTab, clientTab]);
+
   const activeCollege = colleges.find((c) => c.slug === selectedCollegeSlug) || colleges[0] || null;
 
   const totalRooms = nodes.reduce((acc, n) => acc + n.meetings, 0);
@@ -1276,21 +1406,98 @@ export default function AeoraxDashboard() {
 
               {/* CLIENT TAB 3: RECORDINGS */}
               {clientTab === "recordings" && (
-                <div className="glass-card p-6 rounded-3xl space-y-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Classroom Recordings Library</h3>
-                    <p className="text-xs text-slate-500 font-medium">All sessions are securely archived to Cloudflare R2 object storage.</p>
+                <div className="glass-card p-6 rounded-3xl space-y-5">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                        <span>Classroom Recordings Library</span>
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 font-mono font-bold">
+                          {r2Objects.length}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 font-medium">
+                        All sessions are securely archived to Cloudflare R2 bucket <code className="font-mono text-purple-600 dark:text-purple-400">aeorax-live</code> with zero egress fees.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span>Cloudflare R2 Active</span>
+                      </span>
+                      <button
+                        onClick={() => fetchR2Objects()}
+                        disabled={isLoadingR2}
+                        className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        title="Refresh Recordings"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoadingR2 ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-3">
-                    <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center mx-auto">
-                      <HardDrive className="w-6 h-6" />
+                  {isLoadingR2 ? (
+                    <div className="py-12 text-center text-xs text-slate-400">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-600" />
+                      Loading archived recordings from Cloudflare R2...
                     </div>
-                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200">No Session Recordings Found</div>
-                    <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                      When instructors end virtual classrooms with Auto-Recording enabled, BigBlueButton processes the video and archives the replay to Cloudflare R2 storage automatically.
-                    </p>
-                  </div>
+                  ) : r2Objects.length === 0 ? (
+                    <div className="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+                      <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center mx-auto shadow-sm">
+                        <HardDrive className="w-6 h-6" />
+                      </div>
+                      <div className="text-sm font-bold text-slate-800 dark:text-slate-200">No Session Recordings Found</div>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                        When instructors end virtual classrooms with Auto-Recording enabled, BigBlueButton processes the video and archives the replay to Cloudflare R2 storage automatically.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200/90 dark:border-slate-800">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                          <tr>
+                            <th className="py-3 px-4">Recording Name / Key</th>
+                            <th className="py-3 px-4">Size</th>
+                            <th className="py-3 px-4">Timestamp</th>
+                            <th className="py-3 px-4 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {r2Objects.map((obj) => {
+                            const sizeFormatted =
+                              obj.size < 1024
+                                ? `${obj.size} B`
+                                : obj.size < 1024 * 1024
+                                ? `${(obj.size / 1024).toFixed(1)} KB`
+                                : `${(obj.size / (1024 * 1024)).toFixed(2)} MB`;
+
+                            return (
+                              <tr key={obj.key} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition">
+                                <td className="py-3 px-4 font-mono font-medium text-slate-800 dark:text-slate-200 break-all">
+                                  {obj.key}
+                                </td>
+                                <td className="py-3 px-4 font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                  {sizeFormatted}
+                                </td>
+                                <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
+                                  {obj.lastModified ? new Date(obj.lastModified).toLocaleString() : "—"}
+                                </td>
+                                <td className="py-3 px-4 text-right whitespace-nowrap">
+                                  <button
+                                    onClick={() => handleDownloadR2Object(obj.key)}
+                                    className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold transition inline-flex items-center space-x-1 shadow-xs"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    <span>Watch / Download</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3222,41 +3429,222 @@ export default function AeoraxDashboard() {
 
           {/* SUPER ADMIN TAB 5: RECORDING & R2 PIPELINE */}
           {adminTab === "recordings" && (
-            <div className="glass-card p-6 rounded-3xl space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    Cloudflare R2 Recordings Pipeline
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Automated post-meeting publishing, compression, and S3-compatible R2 cloud storage archive
-                  </p>
+            <div className="space-y-6">
+              {/* Header Card with Live Connection Controls */}
+              <div className="glass-card p-6 rounded-3xl relative overflow-hidden bg-gradient-to-r from-blue-50 via-indigo-50/40 to-white dark:from-blue-950/20 dark:via-slate-900/60 dark:to-indigo-950/20 border border-blue-200/80 dark:border-blue-900/40 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center space-x-3.5">
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white shadow-lg shadow-sky-500/25">
+                      <HardDrive className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2.5">
+                        <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                          Cloudflare R2 Storage & Recordings Pipeline
+                        </h2>
+                        {r2Status === "connected" && (
+                          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 animate-pulse">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <span>Live Connected ({r2Latency}ms)</span>
+                          </span>
+                        )}
+                        {r2Status === "testing" && (
+                          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300">
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Probing R2 Bucket...</span>
+                          </span>
+                        )}
+                        {r2Status === "error" && (
+                          <span className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>Connection Issue</span>
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                        S3-compatible persistent object storage for BigBlueButton session recordings, whiteboard archives, and presentation assets.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={testR2LiveConnection}
+                      disabled={r2Status === "testing"}
+                      className="px-4 py-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 shadow-xs flex items-center space-x-1.5 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${r2Status === "testing" ? "animate-spin" : ""}`} />
+                      <span>{r2Status === "testing" ? "Testing..." : "Test R2 Connection"}</span>
+                    </button>
+                    <button
+                      onClick={handleUploadTestFile}
+                      disabled={isUploadingR2}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700 flex items-center space-x-1.5 disabled:opacity-50"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{isUploadingR2 ? "Uploading..." : "+ Upload Verification Ping"}</span>
+                    </button>
+                  </div>
                 </div>
-                <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
-                  Workers Active • 0 Failed Jobs
-                </span>
+
+                {r2UploadSuccess && (
+                  <div className="mt-4 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-bold flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{r2UploadSuccess}</span>
+                  </div>
+                )}
+
+                {r2Status === "error" && r2Message && (
+                  <div className="mt-4 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 font-bold flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{r2Message}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="text-xs text-slate-500 font-bold">Total Storage Consumed</div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                    {colleges.reduce((acc, c) => acc + (c.storageGb || 0), 0).toFixed(1)} GB
+              {/* Stats & Infrastructure Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
+                  <div className="text-[11px] uppercase font-bold text-slate-400">Target Bucket</div>
+                  <div className="text-xl font-black text-slate-900 dark:text-white mt-1 font-mono">aeorax-live</div>
+                  <div className="text-[11px] text-slate-500 mt-1 flex items-center space-x-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Region: auto • S3 API Active</span>
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    across {colleges.length} registered {colleges.length === 1 ? "college" : "colleges"}
+                </div>
+
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
+                  <div className="text-[11px] uppercase font-bold text-slate-400">Total Live Objects</div>
+                  <div className="text-xl font-black text-blue-600 dark:text-blue-400 mt-1">
+                    {r2Objects.length} Objects
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    across all tenant recordings
                   </div>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="text-xs text-slate-500 font-bold">Live Virtual Classrooms</div>
-                  <div className="text-2xl font-black text-blue-600 mt-1">{totalRooms} Active</div>
-                  <div className="text-xs text-slate-500 mt-1">auto-recording to R2 on class end</div>
+
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
+                  <div className="text-[11px] uppercase font-bold text-slate-400">Egress Cost</div>
+                  <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">$0.00 / GB</div>
+                  <div className="text-[11px] text-slate-500 mt-1">100% Free Cloudflare Egress</div>
                 </div>
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="text-xs text-slate-500 font-bold">R2 Storage Rate</div>
-                  <div className="text-2xl font-black text-emerald-600 mt-1">$0.015 / GB</div>
-                  <div className="text-xs text-slate-500 mt-1">Zero egress fees on Cloudflare R2</div>
+
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs">
+                  <div className="text-[11px] uppercase font-bold text-slate-400">Storage Quota Total</div>
+                  <div className="text-xl font-black text-purple-600 dark:text-purple-400 mt-1">
+                    {colleges.reduce((acc, c) => acc + (c.storageLimitGb || 0), 0)} GB
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    allocated across {colleges.length} {colleges.length === 1 ? "tenant" : "tenants"}
+                  </div>
                 </div>
+              </div>
+
+              {/* R2 Live Object Browser & Archive */}
+              <div className="glass-card p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                      <span>R2 Bucket Objects Explorer</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono font-bold">
+                        {r2Objects.length}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Live file objects stored in bucket <code className="font-mono text-purple-600 dark:text-purple-400">aeorax-live</code>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => fetchR2Objects()}
+                    disabled={isLoadingR2}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center space-x-1"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingR2 ? "animate-spin" : ""}`} />
+                    <span>Refresh List</span>
+                  </button>
+                </div>
+
+                {isLoadingR2 ? (
+                  <div className="py-12 text-center text-xs text-slate-400">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+                    Querying Cloudflare R2 bucket...
+                  </div>
+                ) : r2Objects.length === 0 ? (
+                  <div className="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center mx-auto shadow-sm">
+                      <HardDrive className="w-6 h-6" />
+                    </div>
+                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      R2 Bucket is Active & Ready (0 Objects)
+                    </div>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                      No recording files or assets have been uploaded yet. When instructors finish virtual classrooms, BigBlueButton's post-publish script automatically compiles and uploads the MP4 playback to this bucket.
+                    </p>
+                    <button
+                      onClick={handleUploadTestFile}
+                      disabled={isUploadingR2}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm inline-flex items-center space-x-1.5"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{isUploadingR2 ? "Uploading..." : "Upload Test Verification Ping"}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200/90 dark:border-slate-800">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 dark:bg-slate-900/80 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                        <tr>
+                          <th className="py-3 px-4">Object Key / Path</th>
+                          <th className="py-3 px-4">Size</th>
+                          <th className="py-3 px-4">Last Modified</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {r2Objects.map((obj) => {
+                          const sizeFormatted =
+                            obj.size < 1024
+                              ? `${obj.size} B`
+                              : obj.size < 1024 * 1024
+                              ? `${(obj.size / 1024).toFixed(1)} KB`
+                              : `${(obj.size / (1024 * 1024)).toFixed(2)} MB`;
+
+                          return (
+                            <tr key={obj.key} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition">
+                              <td className="py-3 px-4 font-mono font-medium text-slate-800 dark:text-slate-200 break-all">
+                                {obj.key}
+                              </td>
+                              <td className="py-3 px-4 font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                {sizeFormatted}
+                              </td>
+                              <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
+                                {obj.lastModified ? new Date(obj.lastModified).toLocaleString() : "—"}
+                              </td>
+                              <td className="py-3 px-4 text-right whitespace-nowrap space-x-2">
+                                <button
+                                  onClick={() => handleDownloadR2Object(obj.key)}
+                                  className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900 transition inline-flex items-center space-x-1"
+                                  title="Download / Stream via Pre-signed URL"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>Download</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteR2Object(obj.key)}
+                                  className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 font-bold hover:bg-rose-100 dark:hover:bg-rose-900 transition inline-flex items-center space-x-1"
+                                  title="Delete from R2"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Delete</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

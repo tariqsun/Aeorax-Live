@@ -30,10 +30,10 @@ export function getR2Config(): R2Config {
     `https://${accountId}.r2.cloudflarestorage.com`;
 
   const accessKeyId =
-    process.env.R2_ACCESS_KEY_ID || "";
+    process.env.R2_ACCESS_KEY_ID || "8816f95bb2b3e35d47791fb176548a68";
 
   const secretAccessKey =
-    process.env.R2_SECRET_ACCESS_KEY || "";
+    process.env.R2_SECRET_ACCESS_KEY || "f3022ade353c0297634cc8bf80f6a6cac6749ca6b86dc230a267b767e57e7508";
 
   const bucketName =
     process.env.R2_BUCKET_NAME || "aeorax-live";
