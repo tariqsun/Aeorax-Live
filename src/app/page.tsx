@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Server,
   Users,
@@ -293,6 +293,15 @@ export default function AeoraxDashboard() {
   const [copiedInstallLogs, setCopiedInstallLogs] = useState<boolean>(false);
   const [copiedUpgradeLogs, setCopiedUpgradeLogs] = useState<boolean>(false);
 
+  const installLogsEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll terminal smoothly to latest line whenever new logs arrive
+  useEffect(() => {
+    if (installLogsEndRef.current) {
+      installLogsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [installLogs]);
+
   const copyTextWithFallback = (text: string, onCopied: () => void) => {
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).then(() => {
@@ -503,6 +512,15 @@ export default function AeoraxDashboard() {
   const [upgradeProgress, setUpgradeProgress] = useState<number>(0);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "running" | "completed" | "error">("idle");
   const [upgradeStepTitle, setUpgradeStepTitle] = useState<string>("Initializing...");
+
+  const upgradeLogsEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll upgrade terminal smoothly to latest line
+  useEffect(() => {
+    if (upgradeLogsEndRef.current) {
+      upgradeLogsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [upgradeLogs]);
 
   const fetchLatestRelease = async () => {
     try {
@@ -1908,6 +1926,7 @@ export default function AeoraxDashboard() {
                                 {log}
                               </div>
                             ))}
+                            <div ref={upgradeLogsEndRef} />
                           </div>
                         </div>
 
@@ -2512,6 +2531,7 @@ export default function AeoraxDashboard() {
                                 {log}
                               </div>
                             ))}
+                            <div ref={installLogsEndRef} />
                           </div>
                         </div>
 
@@ -2533,7 +2553,7 @@ export default function AeoraxDashboard() {
                           <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900 text-xs text-purple-800 dark:text-purple-300 flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-600 shrink-0" />
-                              <span>Installing BBB 3.0, generating SSL, and starting Aeorax telemetry daemon.</span>
+                              <span className="font-medium">{installStepTitle || "Installing BigBlueButton, generating Let's Encrypt SSL, and starting Aeorax telemetry daemon."}</span>
                             </div>
                             <button
                               type="button"
