@@ -2011,7 +2011,7 @@ export default function AeoraxDashboard() {
                             <div>
                               <span className="font-black uppercase tracking-wide">Incompatible OS Detected: {preflightData?.os?.name}</span>
                               <div className="text-[11px] font-normal text-rose-700 dark:text-rose-400 mt-0.5">
-                                BigBlueButton 3.0 strictly requires <strong>Ubuntu 22.04 LTS (Jammy)</strong>. Installation is blocked because Ubuntu 24.04 (Noble) lacks FreeSWITCH WebRTC support. Please rebuild your VPS with Ubuntu 22.04 LTS.
+                                BigBlueButton requires either <strong>Ubuntu 24.04 LTS (for BBB 4.0)</strong> or <strong>Ubuntu 22.04 LTS (for BBB 3.0)</strong>. Please run preflight diagnostics or rebuild with a supported OS.
                               </div>
                             </div>
                           </div>
@@ -2021,7 +2021,7 @@ export default function AeoraxDashboard() {
                             <div>
                               <span className="font-black">STATUS: READY FOR INSTALLATION</span>
                               <div className="text-[11px] font-normal text-emerald-700 dark:text-emerald-400 mt-0.5">
-                                Server passed hardware, port, and Ubuntu 22.04 LTS OS checks. Ready to install BigBlueButton 3.0.39.
+                                {preflightData?.summary || "Server passed hardware, port, and Ubuntu LTS OS checks. Ready to install BigBlueButton."}
                               </div>
                             </div>
                           </div>

@@ -156,10 +156,12 @@ export async function POST(req: NextRequest) {
 
     // Parse OS
     const isUbuntu = osRaw.toLowerCase().includes("ubuntu");
+    const is2404 = osRaw.includes("24.04");
     const is2204 = osRaw.includes("22.04");
     const osNameMatch = osRaw.match(/PRETTY_NAME="([^"]+)"/);
     const osName = osNameMatch ? osNameMatch[1] : isUbuntu ? "Ubuntu Linux" : "Unknown OS";
-    const osValid = isUbuntu && is2204;
+    const osValid = isUbuntu && (is2404 || is2204);
+    const targetBbbVersion = is2404 ? "BigBlueButton 4.0 (Noble)" : "BigBlueButton 3.0 (Jammy)";
 
     // Parse CPU Cores
     const cores = parseInt(cpuRaw.trim(), 10) || 4;
@@ -198,7 +200,7 @@ export async function POST(req: NextRequest) {
       disk: { totalGb: totalDiskGb, freeGb: freeDiskGb, valid: diskValid },
       readyForInstall,
       summary: readyForInstall
-        ? "All Preflight Checks Passed! Server is fully eligible for BigBlueButton 3.0.39 and Aeorax Telemetry installation."
+        ? `All Preflight Checks Passed! Server is fully eligible for ${targetBbbVersion} installation.`
         : "Some requirements not met. Please review warnings below.",
     };
 

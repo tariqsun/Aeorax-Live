@@ -67,16 +67,27 @@ ufw allow 443/tcp
 ufw allow 16384:32768/udp
 ufw --force enable
 
-echo "[Aeorax] Checking for BigBlueButton installation..."
+echo "[Aeorax] Detecting Ubuntu OS version for BigBlueButton compatibility..."
+UBUNTU_VER=$(grep "VERSION_ID" /etc/os-release | cut -d'"' -f2 || echo "24.04")
+echo "[Aeorax] Detected Ubuntu Version: $UBUNTU_VER"
+
 if which bbb-conf > /dev/null 2>&1; then
     echo "[Aeorax] BigBlueButton is already installed. Checking configuration:"
     bbb-conf --check
 else
-    echo "[Aeorax] Downloading official BigBlueButton installer..."
-    wget -qO /root/bbb-install-2.7.sh https://ubuntu.bigbluebutton.org/bbb-install-2.7.sh
-    chmod +x /root/bbb-install-2.7.sh
-    echo "[Aeorax] Running bbb-install (this can take 5 to 10 minutes)..."
-    /root/bbb-install-2.7.sh -v jammy-300 -s "${fqdn}" -e "${adminEmail}" -a
+    if [ "$UBUNTU_VER" = "24.04" ]; then
+        echo "[Aeorax] Target: BigBlueButton 4.0 for Ubuntu 24.04 (noble-400)..."
+        wget -qO /root/bbb-install.sh https://raw.githubusercontent.com/bigbluebutton/bbb-install/v4.0.x-release/bbb-install.sh || wget -qO /root/bbb-install.sh https://ubuntu.bigbluebutton.org/bbb-install.sh
+        chmod +x /root/bbb-install.sh
+        echo "[Aeorax] Running BigBlueButton 4.0 installer (-v noble-400)..."
+        /root/bbb-install.sh -v noble-400 -s "${fqdn}" -e "${adminEmail}" -a
+    else
+        echo "[Aeorax] Target: BigBlueButton 3.0 for Ubuntu 22.04 (jammy-300)..."
+        wget -qO /root/bbb-install.sh https://ubuntu.bigbluebutton.org/bbb-install-2.7.sh
+        chmod +x /root/bbb-install.sh
+        echo "[Aeorax] Running BigBlueButton 3.0 installer (-v jammy-300)..."
+        /root/bbb-install.sh -v jammy-300 -s "${fqdn}" -e "${adminEmail}" -a
+    fi
 fi
 
 echo "[Aeorax] Extracting BBB credentials..."
