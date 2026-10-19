@@ -1476,21 +1476,11 @@ export default function AeoraxDashboard() {
                     setLoginRole("SUPER_ADMIN");
                     setLoginIdentifier("superadmin@aeoraxlive.com");
                     setLoginPassword("AdminPassword123!");
+                    setLoginError(null);
                   }}
                   className="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/50 text-blue-300 hover:bg-blue-900/60 transition"
                 >
-                  ⚡ Super Admin (Full Fleet)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginRole("COLLEGE_ADMIN");
-                    setLoginIdentifier("oxford-intl");
-                    setLoginPassword("sec_oxford_bbb_secret_998877");
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-800/50 text-purple-300 hover:bg-purple-900/60 transition"
-                >
-                  🎓 Oxford College Admin
+                  ⚡ Super Admin
                 </button>
                 <button
                   type="button"
@@ -1498,10 +1488,24 @@ export default function AeoraxDashboard() {
                     setLoginRole("SUPER_ADMIN");
                     setLoginIdentifier("admin");
                     setLoginPassword("aeorax2026!");
+                    setLoginError(null);
                   }}
                   className="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 hover:bg-emerald-900/60 transition"
                 >
                   🔑 Master Root Key
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginRole("COLLEGE_ADMIN");
+                    const target = colleges[0] || { slug: "test-college", name: "Client College" };
+                    setLoginIdentifier(target.slug);
+                    setLoginPassword("aeorax2026!");
+                    setLoginError(null);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-800/50 text-purple-300 hover:bg-purple-900/60 transition"
+                >
+                  🎓 {colleges[0]?.name ? `${colleges[0].name.trim().slice(0, 14)} Admin` : "Client College Admin"}
                 </button>
               </div>
             </div>

