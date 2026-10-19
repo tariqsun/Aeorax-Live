@@ -153,6 +153,47 @@ export default function AeoraxDashboard() {
     },
   });
   const [brandingSaveToast, setBrandingSaveToast] = useState<boolean>(false);
+  const [isSavingBranding, setIsSavingBranding] = useState<boolean>(false);
+
+  // Load saved branding from API on mount
+  useEffect(() => {
+    fetch("/api/branding")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          setBrandingSettings({
+            default: json.data.global,
+            ...json.data.colleges,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveBranding = async () => {
+    setIsSavingBranding(true);
+    try {
+      const isGlobal = selectedBrandingCollegeSlug === "default";
+      const config = brandingSettings[selectedBrandingCollegeSlug];
+      const res = await fetch("/api/branding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target: isGlobal ? "global" : selectedBrandingCollegeSlug,
+          config,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBrandingSaveToast(true);
+        setTimeout(() => setBrandingSaveToast(false), 4000);
+      }
+    } catch (err) {
+      console.error("Save branding error:", err);
+    } finally {
+      setIsSavingBranding(false);
+    }
+  };
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
@@ -2588,61 +2629,72 @@ export default function AeoraxDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* LEFT COLUMN: Controls & College Selectors (7 Cols) */}
                 <div className="lg:col-span-7 space-y-5">
-                  {/* Global Default Brand Summary Card */}
+                  {/* Global Platform Brand Summary Banner */}
                   <div className="glass-card p-5.5 rounded-3xl border border-indigo-200/70 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/50 dark:from-indigo-950/20 dark:via-slate-900/60 dark:to-purple-950/20 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
                         <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">
-                          Global Platform Default Brand (Fallback)
+                          Enterprise Dual-Mode Theming Architecture
                         </h4>
                       </div>
                       <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
-                        Default: Aeorax Live
+                        Zero SSH / Stateless Nodes
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                      All colleges with <strong>White-Label OFF</strong> automatically inherit your primary brand ("Aeorax Live", Indigo #6366f1 accent, standard welcome slides). Meeting nodes remain completely clean and stateless.
+                      You can set your <strong>Global Platform Default Brand</strong> (applied to all standard clients) or turn on <strong>Custom White-Labeling</strong> for specific institutions. BigBlueButton meeting nodes remain 100% standalone and load everything dynamically on room start.
                     </p>
                   </div>
 
-                  {/* Per-College White-Label Editor Card */}
+                  {/* Brand & College Editor Card */}
                   <div className="glass-card p-6 rounded-3xl space-y-5">
-                    {/* College Selector Tabs */}
+                    {/* Brand & College Selector Tabs */}
                     <div>
                       <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-2">
-                        Select Client College / Tenant
+                        Select Target to Configure Branding
                       </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                         {[
+                          { slug: "default", name: "⭐ Global Master Brand", isGlobal: true },
                           { slug: "oxford-intl", name: "Oxford Int'l" },
                           { slug: "stanford-demo", name: "Stanford Demo" },
                           { slug: "cambridge-biz", name: "Cambridge Biz" },
                           { slug: "mit-online", name: "MIT Academy" },
                         ].map((col) => {
                           const isSelected = selectedBrandingCollegeSlug === col.slug;
-                          const isWhitelabeled = brandingSettings[col.slug]?.whiteLabelEnabled;
+                          const isWhitelabeled = col.isGlobal
+                            ? false
+                            : brandingSettings[col.slug]?.whiteLabelEnabled;
+
                           return (
                             <button
                               key={col.slug}
+                              type="button"
                               onClick={() => setSelectedBrandingCollegeSlug(col.slug)}
                               className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
                                 isSelected
-                                  ? "border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20"
+                                  ? col.isGlobal
+                                    ? "border-indigo-500 bg-indigo-50/90 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/30"
+                                    : "border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20"
                                   : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
                               }`}
                             >
-                              <div className="font-bold text-xs truncate">{col.name}</div>
+                              <div className="font-extrabold text-xs truncate">{col.name}</div>
                               <div className="mt-1 flex items-center justify-between text-[10px]">
-                                <span className="font-mono text-slate-400">{col.slug}</span>
+                                <span className="font-mono text-slate-400">
+                                  {col.isGlobal ? "platform" : col.slug}
+                                </span>
                                 <span
                                   className={`px-1.5 py-0.2 rounded font-black ${
-                                    isWhitelabeled
+                                    col.isGlobal
+                                      ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300"
+                                      : isWhitelabeled
                                       ? "bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300"
                                       : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                                   }`}
                                 >
-                                  {isWhitelabeled ? "Custom" : "Default"}
+                                  {col.isGlobal ? "Default" : isWhitelabeled ? "Custom" : "Inherit"}
                                 </span>
                               </div>
                             </button>
@@ -2651,55 +2703,34 @@ export default function AeoraxDashboard() {
                       </div>
                     </div>
 
-                    {/* White-Label Toggle */}
-                    {selectedBrandingCollegeSlug && (
-                      <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
-                        <div>
-                          <div className="font-extrabold text-xs text-slate-900 dark:text-white">
-                            Enable Custom White-Labeling for {brandingSettings[selectedBrandingCollegeSlug]?.brandName}
+                    {/* MODE 1: GLOBAL PLATFORM MASTER BRAND SETTINGS */}
+                    {selectedBrandingCollegeSlug === "default" && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60">
+                          <div className="flex items-center space-x-2">
+                            <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                            <span className="font-extrabold text-xs text-indigo-900 dark:text-indigo-200">
+                              Configuring Global Master Brand (Default for All Standard Clients)
+                            </span>
                           </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            Override default Aeorax branding with this college's custom logo, colors, and welcome presentation.
-                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                            This is your primary SaaS brand. When any college has white-label disabled, their meeting rooms, navbar, whiteboard, and buttons will automatically display this branding.
+                          </p>
                         </div>
 
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled || false}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setBrandingSettings({
-                                ...brandingSettings,
-                                [selectedBrandingCollegeSlug]: {
-                                  ...brandingSettings[selectedBrandingCollegeSlug],
-                                  whiteLabelEnabled: checked,
-                                },
-                              });
-                            }}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Branding Editor Form */}
-                    {selectedBrandingCollegeSlug && (
-                      <div className={`space-y-4 transition ${!brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled ? "opacity-40 pointer-events-none" : ""}`}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                           <div>
                             <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                              Display Brand Name
+                              Global Platform Brand Name
                             </label>
                             <input
                               type="text"
-                              value={brandingSettings[selectedBrandingCollegeSlug]?.brandName || ""}
+                              value={brandingSettings["default"]?.brandName || "Aeorax Live"}
                               onChange={(e) => {
                                 setBrandingSettings({
                                   ...brandingSettings,
-                                  [selectedBrandingCollegeSlug]: {
-                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                  default: {
+                                    ...brandingSettings["default"],
                                     brandName: e.target.value,
                                   },
                                 });
@@ -2710,17 +2741,17 @@ export default function AeoraxDashboard() {
 
                           <div>
                             <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                              Classroom Logo URL
+                              Global Brand Logo URL
                             </label>
                             <input
                               type="text"
-                              value={brandingSettings[selectedBrandingCollegeSlug]?.logoUrl || ""}
-                              placeholder="https://domain.com/logo.png"
+                              value={brandingSettings["default"]?.logoUrl || ""}
+                              placeholder="https://yourdomain.com/logo.png"
                               onChange={(e) => {
                                 setBrandingSettings({
                                   ...brandingSettings,
-                                  [selectedBrandingCollegeSlug]: {
-                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                  default: {
+                                    ...brandingSettings["default"],
                                     logoUrl: e.target.value,
                                   },
                                 });
@@ -2730,21 +2761,21 @@ export default function AeoraxDashboard() {
                           </div>
                         </div>
 
-                        {/* Color Picker & Preset Swatches */}
+                        {/* Color Picker & Preset Swatches for Default */}
                         <div>
                           <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
-                            Classroom Primary Accent Color
+                            Global Default Primary Accent Color
                           </label>
                           <div className="flex items-center space-x-3 flex-wrap gap-y-2">
                             {[
-                              { label: "Ocean Blue", hex: "#0284c7" },
-                              { label: "Crimson Rose", hex: "#e11d48" },
-                              { label: "Emerald Green", hex: "#10b981" },
                               { label: "Royal Indigo", hex: "#6366f1" },
+                              { label: "Ocean Blue", hex: "#0284c7" },
+                              { label: "Emerald Green", hex: "#10b981" },
+                              { label: "Crimson Rose", hex: "#e11d48" },
                               { label: "Amber Gold", hex: "#f59e0b" },
                               { label: "Deep Violet", hex: "#7c3aed" },
                             ].map((preset) => {
-                              const isCurrent = brandingSettings[selectedBrandingCollegeSlug]?.primaryColor === preset.hex;
+                              const isCurrent = (brandingSettings["default"]?.primaryColor || "#6366f1") === preset.hex;
                               return (
                                 <button
                                   key={preset.hex}
@@ -2752,15 +2783,15 @@ export default function AeoraxDashboard() {
                                   onClick={() => {
                                     setBrandingSettings({
                                       ...brandingSettings,
-                                      [selectedBrandingCollegeSlug]: {
-                                        ...brandingSettings[selectedBrandingCollegeSlug],
+                                      default: {
+                                        ...brandingSettings["default"],
                                         primaryColor: preset.hex,
                                       },
                                     });
                                   }}
                                   className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
                                     isCurrent
-                                      ? "ring-2 ring-purple-500 border-transparent shadow-sm"
+                                      ? "ring-2 ring-indigo-500 border-transparent shadow-sm bg-indigo-50 dark:bg-indigo-950/60"
                                       : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
                                   }`}
                                 >
@@ -2773,12 +2804,12 @@ export default function AeoraxDashboard() {
                             <div className="flex items-center space-x-2 ml-auto">
                               <input
                                 type="color"
-                                value={brandingSettings[selectedBrandingCollegeSlug]?.primaryColor || "#6366f1"}
+                                value={brandingSettings["default"]?.primaryColor || "#6366f1"}
                                 onChange={(e) => {
                                   setBrandingSettings({
                                     ...brandingSettings,
-                                    [selectedBrandingCollegeSlug]: {
-                                      ...brandingSettings[selectedBrandingCollegeSlug],
+                                    default: {
+                                      ...brandingSettings["default"],
                                       primaryColor: e.target.value,
                                     },
                                   });
@@ -2787,12 +2818,12 @@ export default function AeoraxDashboard() {
                               />
                               <input
                                 type="text"
-                                value={brandingSettings[selectedBrandingCollegeSlug]?.primaryColor || "#6366f1"}
+                                value={brandingSettings["default"]?.primaryColor || "#6366f1"}
                                 onChange={(e) => {
                                   setBrandingSettings({
                                     ...brandingSettings,
-                                    [selectedBrandingCollegeSlug]: {
-                                      ...brandingSettings[selectedBrandingCollegeSlug],
+                                    default: {
+                                      ...brandingSettings["default"],
                                       primaryColor: e.target.value,
                                     },
                                   });
@@ -2807,17 +2838,17 @@ export default function AeoraxDashboard() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                           <div>
                             <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                              Classroom Welcome Banner
+                              Global Classroom Welcome Banner
                             </label>
                             <input
                               type="text"
-                              value={brandingSettings[selectedBrandingCollegeSlug]?.bannerText || ""}
-                              placeholder="e.g. Welcome Oxford Students & Faculty"
+                              value={brandingSettings["default"]?.bannerText || ""}
+                              placeholder="e.g. Welcome to Aeorax Live Virtual Classroom"
                               onChange={(e) => {
                                 setBrandingSettings({
                                   ...brandingSettings,
-                                  [selectedBrandingCollegeSlug]: {
-                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                  default: {
+                                    ...brandingSettings["default"],
                                     bannerText: e.target.value,
                                   },
                                 });
@@ -2828,17 +2859,17 @@ export default function AeoraxDashboard() {
 
                           <div>
                             <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                              Default Welcome Slide (PDF URL)
+                              Global Default Slide (PDF URL)
                             </label>
                             <input
                               type="text"
-                              value={brandingSettings[selectedBrandingCollegeSlug]?.welcomePdfUrl || ""}
-                              placeholder="https://domain.com/welcome-slide.pdf"
+                              value={brandingSettings["default"]?.welcomePdfUrl || ""}
+                              placeholder="https://yourdomain.com/slides/default.pdf"
                               onChange={(e) => {
                                 setBrandingSettings({
                                   ...brandingSettings,
-                                  [selectedBrandingCollegeSlug]: {
-                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                  default: {
+                                    ...brandingSettings["default"],
                                     welcomePdfUrl: e.target.value,
                                   },
                                 });
@@ -2852,18 +2883,292 @@ export default function AeoraxDashboard() {
                         <div className="pt-2 flex justify-end">
                           <button
                             type="button"
-                            onClick={() => {
-                              setBrandingSaveToast(true);
-                              setTimeout(() => setBrandingSaveToast(false), 4000);
-                            }}
-                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-extrabold transition shadow-md shadow-purple-500/25 flex items-center space-x-1.5 transform hover:scale-102"
+                            disabled={isSavingBranding}
+                            onClick={handleSaveBranding}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-extrabold transition shadow-md shadow-indigo-500/25 flex items-center space-x-1.5 transform hover:scale-102 disabled:opacity-50"
                           >
-                            <Check className="w-4 h-4" />
-                            <span>Save & Activate Branding</span>
+                            {isSavingBranding ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
+                            <span>{isSavingBranding ? "Saving..." : "Save & Activate Global Brand"}</span>
                           </button>
                         </div>
                       </div>
                     )}
+
+                    {/* MODE 2: PER-COLLEGE BRANDING WITH DUAL CHOICE (INHERIT VS CUSTOM WHITE-LABEL) */}
+                    {selectedBrandingCollegeSlug !== "default" && (
+                      <div className="space-y-4 animate-fadeIn">
+                        {/* Dual Option Cards: Inherit vs Custom White-Label */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBrandingSettings({
+                                ...brandingSettings,
+                                [selectedBrandingCollegeSlug]: {
+                                  ...brandingSettings[selectedBrandingCollegeSlug],
+                                  whiteLabelEnabled: false,
+                                },
+                              });
+                            }}
+                            className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between ${
+                              !brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled
+                                ? "border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20"
+                                : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-xs flex items-center space-x-1.5">
+                                <span>🌐 Use Global Brand</span>
+                              </span>
+                              {!brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled && (
+                                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                              Inherits <strong>{brandingSettings["default"]?.brandName || "Aeorax Live"}</strong> name, logo, and theme color. Zero configuration required.
+                            </p>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBrandingSettings({
+                                ...brandingSettings,
+                                [selectedBrandingCollegeSlug]: {
+                                  ...brandingSettings[selectedBrandingCollegeSlug],
+                                  whiteLabelEnabled: true,
+                                },
+                              });
+                            }}
+                            className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between ${
+                              brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled
+                                ? "border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20"
+                                : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-extrabold text-xs flex items-center space-x-1.5">
+                                <span>🎨 Custom White-Label</span>
+                              </span>
+                              {brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled && (
+                                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                              Custom logo, colors, welcome slides, and branded room experience tailored exclusively for this client.
+                            </p>
+                          </button>
+                        </div>
+
+                        {/* College White-Label Customization Form (when enabled) */}
+                        {brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled ? (
+                          <div className="space-y-4 pt-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                              <div>
+                                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                  College Brand Display Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={brandingSettings[selectedBrandingCollegeSlug]?.brandName || ""}
+                                  onChange={(e) => {
+                                    setBrandingSettings({
+                                      ...brandingSettings,
+                                      [selectedBrandingCollegeSlug]: {
+                                        ...brandingSettings[selectedBrandingCollegeSlug],
+                                        brandName: e.target.value,
+                                      },
+                                    });
+                                  }}
+                                  className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                  College Classroom Logo URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={brandingSettings[selectedBrandingCollegeSlug]?.logoUrl || ""}
+                                  placeholder="https://college.edu/logo.png"
+                                  onChange={(e) => {
+                                    setBrandingSettings({
+                                      ...brandingSettings,
+                                      [selectedBrandingCollegeSlug]: {
+                                        ...brandingSettings[selectedBrandingCollegeSlug],
+                                        logoUrl: e.target.value,
+                                      },
+                                    });
+                                  }}
+                                  className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Color Picker & Preset Swatches for College */}
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                                College Classroom Primary Accent Color
+                              </label>
+                              <div className="flex items-center space-x-3 flex-wrap gap-y-2">
+                                {[
+                                  { label: "Ocean Blue", hex: "#0284c7" },
+                                  { label: "Crimson Rose", hex: "#e11d48" },
+                                  { label: "Emerald Green", hex: "#10b981" },
+                                  { label: "Royal Indigo", hex: "#6366f1" },
+                                  { label: "Amber Gold", hex: "#f59e0b" },
+                                  { label: "Deep Violet", hex: "#7c3aed" },
+                                ].map((preset) => {
+                                  const isCurrent = brandingSettings[selectedBrandingCollegeSlug]?.primaryColor === preset.hex;
+                                  return (
+                                    <button
+                                      key={preset.hex}
+                                      type="button"
+                                      onClick={() => {
+                                        setBrandingSettings({
+                                          ...brandingSettings,
+                                          [selectedBrandingCollegeSlug]: {
+                                            ...brandingSettings[selectedBrandingCollegeSlug],
+                                            primaryColor: preset.hex,
+                                          },
+                                        });
+                                      }}
+                                      className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
+                                        isCurrent
+                                          ? "ring-2 ring-purple-500 border-transparent shadow-sm bg-purple-50 dark:bg-purple-950/60"
+                                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                      }`}
+                                    >
+                                      <span className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: preset.hex }} />
+                                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">{preset.label}</span>
+                                    </button>
+                                  );
+                                })}
+
+                                <div className="flex items-center space-x-2 ml-auto">
+                                  <input
+                                    type="color"
+                                    value={brandingSettings[selectedBrandingCollegeSlug]?.primaryColor || "#6366f1"}
+                                    onChange={(e) => {
+                                      setBrandingSettings({
+                                        ...brandingSettings,
+                                        [selectedBrandingCollegeSlug]: {
+                                          ...brandingSettings[selectedBrandingCollegeSlug],
+                                          primaryColor: e.target.value,
+                                        },
+                                      });
+                                    }}
+                                    className="w-8 h-8 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer p-0.5 bg-transparent"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={brandingSettings[selectedBrandingCollegeSlug]?.primaryColor || "#6366f1"}
+                                    onChange={(e) => {
+                                      setBrandingSettings({
+                                        ...brandingSettings,
+                                        [selectedBrandingCollegeSlug]: {
+                                          ...brandingSettings[selectedBrandingCollegeSlug],
+                                          primaryColor: e.target.value,
+                                        },
+                                      });
+                                    }}
+                                    className="w-24 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-800 font-mono text-xs font-bold bg-white dark:bg-slate-900"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Banner & Presentation */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                              <div>
+                                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                  Classroom Welcome Banner
+                                </label>
+                                <input
+                                  type="text"
+                                  value={brandingSettings[selectedBrandingCollegeSlug]?.bannerText || ""}
+                                  placeholder="e.g. Welcome Oxford Students & Faculty"
+                                  onChange={(e) => {
+                                    setBrandingSettings({
+                                      ...brandingSettings,
+                                      [selectedBrandingCollegeSlug]: {
+                                        ...brandingSettings[selectedBrandingCollegeSlug],
+                                        bannerText: e.target.value,
+                                      },
+                                    });
+                                  }}
+                                  className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                  Default Welcome Slide (PDF URL)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={brandingSettings[selectedBrandingCollegeSlug]?.welcomePdfUrl || ""}
+                                  placeholder="https://college.edu/slides/welcome.pdf"
+                                  onChange={(e) => {
+                                    setBrandingSettings({
+                                      ...brandingSettings,
+                                      [selectedBrandingCollegeSlug]: {
+                                        ...brandingSettings[selectedBrandingCollegeSlug],
+                                        welcomePdfUrl: e.target.value,
+                                      },
+                                    });
+                                  }}
+                                  className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-center py-6">
+                            <CheckCircle className="w-8 h-8 text-indigo-500 mx-auto mb-2 opacity-80" />
+                            <div className="font-extrabold text-xs text-slate-800 dark:text-slate-200">
+                              Currently Inheriting Global Platform Brand
+                            </div>
+                            <div className="text-[11px] text-slate-500 max-w-sm mx-auto mt-1">
+                              All rooms for this college will automatically display the global "{brandingSettings["default"]?.brandName || "Aeorax Live"}" brand name, logo, and theme color.
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Save Button */}
+                        <div className="pt-2 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={isSavingBranding}
+                            onClick={handleSaveBranding}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-extrabold transition shadow-md shadow-purple-500/25 flex items-center space-x-1.5 transform hover:scale-102 disabled:opacity-50"
+                          >
+                            {isSavingBranding ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4" />
+                            )}
+                            <span>{isSavingBranding ? "Saving..." : "Save & Activate College Branding"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Architecture Clarification Callout */}
+                  <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                    <div className="font-extrabold text-slate-900 dark:text-white flex items-center space-x-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                      <span>Zero-Touch BigBlueButton Meeting Servers Architecture</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      All BigBlueButton 3.0 meeting servers run purely standalone and stateless. All logos, custom styles, and banners are injected dynamically over HTTPS by this Master Panel on room launch (<code className="font-mono text-purple-600 dark:text-purple-400 text-[10px]">userdata-bbb_custom_style_url</code>). You never need to SSH into meeting servers or edit nginx files to customize themes.
+                    </p>
                   </div>
                 </div>
 
@@ -2880,10 +3185,28 @@ export default function AeoraxDashboard() {
 
                   {/* HTML5 Client Simulated Browser Frame */}
                   {(() => {
+                    const isGlobalSelected = selectedBrandingCollegeSlug === "default";
                     const currentConfig = brandingSettings[selectedBrandingCollegeSlug] || brandingSettings["default"];
-                    const effectiveColor = currentConfig.whiteLabelEnabled ? currentConfig.primaryColor : "#6366f1";
-                    const effectiveName = currentConfig.whiteLabelEnabled ? currentConfig.brandName : "Aeorax Live";
-                    const effectiveBanner = currentConfig.whiteLabelEnabled ? currentConfig.bannerText : "Welcome to Aeorax Live Virtual Classroom";
+                    const globalConfig = brandingSettings["default"] || {
+                      brandName: "Aeorax Live",
+                      primaryColor: "#6366f1",
+                      logoUrl: "",
+                      bannerText: "Welcome to Aeorax Live Virtual Classroom",
+                    };
+
+                    const isEffectivelyWhitelabeled = !isGlobalSelected && currentConfig.whiteLabelEnabled;
+                    const effectiveColor = isEffectivelyWhitelabeled
+                      ? currentConfig.primaryColor || globalConfig.primaryColor
+                      : globalConfig.primaryColor;
+                    const effectiveName = isEffectivelyWhitelabeled
+                      ? currentConfig.brandName || "Custom Brand"
+                      : globalConfig.brandName || "Aeorax Live";
+                    const effectiveBanner = isEffectivelyWhitelabeled
+                      ? currentConfig.bannerText || "Welcome to Virtual Classroom"
+                      : globalConfig.bannerText || "Welcome to Aeorax Live Virtual Classroom";
+                    const effectiveLogo = isEffectivelyWhitelabeled
+                      ? currentConfig.logoUrl
+                      : globalConfig.logoUrl;
 
                     return (
                       <div className="rounded-3xl border border-slate-300 dark:border-slate-800 bg-[#0c101a] text-white shadow-2xl overflow-hidden flex flex-col h-[520px]">
@@ -2897,9 +3220,26 @@ export default function AeoraxDashboard() {
                               https://node1.aeoraxlive.com/html5client/join
                             </span>
                           </div>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
-                            SSL Verified
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                              SSL Verified
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                isGlobalSelected
+                                  ? "bg-indigo-950 text-indigo-300 border-indigo-700"
+                                  : isEffectivelyWhitelabeled
+                                  ? "bg-purple-950 text-purple-300 border-purple-700"
+                                  : "bg-slate-800 text-slate-300 border-slate-700"
+                              }`}
+                            >
+                              {isGlobalSelected
+                                ? "Global Master Brand"
+                                : isEffectivelyWhitelabeled
+                                ? "Custom White-Label"
+                                : "Inheriting Global Brand"}
+                            </span>
+                          </div>
                         </div>
 
                         {/* BBB Classroom Top Navbar */}
@@ -2911,9 +3251,9 @@ export default function AeoraxDashboard() {
                           }}
                         >
                           <div className="flex items-center space-x-2.5">
-                            {currentConfig.whiteLabelEnabled && currentConfig.logoUrl ? (
+                            {effectiveLogo ? (
                               <img
-                                src={currentConfig.logoUrl}
+                                src={effectiveLogo}
                                 alt="Logo"
                                 className="w-6 h-6 rounded object-cover shadow-sm"
                                 onError={(e) => {
