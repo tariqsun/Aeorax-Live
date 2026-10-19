@@ -125,10 +125,31 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Auto-create isolated tenant storage directory in Cloudflare R2
+    let r2Initialized = false;
+    try {
+      const { uploadObjectToR2 } = await import("@/lib/r2");
+      const keepKey = `${cleanSlug}/recordings/.keep`;
+      await uploadObjectToR2(
+        keepKey,
+        Buffer.from(`Aeorax Live Tenant Isolated Storage initialized for ${name} (${cleanSlug})`),
+        "text/plain",
+        {
+          tenantSlug: cleanSlug,
+          collegeName: name,
+          initializedAt: new Date().toISOString(),
+        }
+      );
+      r2Initialized = true;
+    } catch (r2Err: any) {
+      console.warn(`[Aeorax R2] Notice: Could not pre-create directory for ${cleanSlug}:`, r2Err?.message);
+    }
+
     return NextResponse.json({
       success: true,
-      message: "College tenant created successfully",
+      message: "College tenant created successfully and isolated R2 storage allocated",
       college,
+      r2StorageInitialized: r2Initialized,
     });
   } catch (error: any) {
     console.error("Create college error:", error);

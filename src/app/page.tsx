@@ -38,7 +38,24 @@ import {
   Trash2,
   Building,
   Upload,
+  LogOut,
+  Mail,
+  Key,
+  Folder,
+  Eye,
+  EyeOff,
+  User,
 } from "lucide-react";
+
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "SUPER_ADMIN" | "COLLEGE_ADMIN" | "TEACHER" | "STUDENT";
+  collegeId?: string | null;
+  collegeSlug?: string | null;
+  collegeName?: string | null;
+}
 
 interface R2ObjectItem {
   key: string;
@@ -114,9 +131,24 @@ interface RoomData {
 }
 
 export default function AeoraxDashboard() {
+  // Authentication & RBAC Layer State
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [loginIdentifier, setLoginIdentifier] = useState<string>("superadmin@aeoraxlive.com");
+  const [loginPassword, setLoginPassword] = useState<string>("AdminPassword123!");
+  const [loginRole, setLoginRole] = useState<"SUPER_ADMIN" | "COLLEGE_ADMIN">("SUPER_ADMIN");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
   // Portal View Switcher: "SUPER_ADMIN" vs "CLIENT_PORTAL" (College Admin)
   const [currentView, setCurrentView] = useState<"SUPER_ADMIN" | "CLIENT_PORTAL">("SUPER_ADMIN");
   const [selectedCollegeSlug, setSelectedCollegeSlug] = useState<string>("oxford-intl");
+
+  // Multi-Tenant Cloudflare R2 Filtering & Lifecycle Simulation State
+  const [selectedR2CollegeFilter, setSelectedR2CollegeFilter] = useState<string>("ALL");
+  const [isSimulatingBBBMove, setIsSimulatingBBBMove] = useState<boolean>(false);
+  const [bbbMoveSuccessMsg, setBbbMoveSuccessMsg] = useState<string | null>(null);
 
   // Tab navigation
   const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "colleges" | "moodle" | "recordings" | "advisor" | "branding">("overview");
@@ -183,6 +215,72 @@ export default function AeoraxDashboard() {
   });
   const [brandingSaveToast, setBrandingSaveToast] = useState<boolean>(false);
   const [isSavingBranding, setIsSavingBranding] = useState<boolean>(false);
+
+  // Check Active Session on Mount
+  const checkAuthSession = async () => {
+    try {
+      setIsAuthLoading(true);
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      if (data.success && data.authenticated && data.user) {
+        setCurrentUser(data.user);
+        if (data.user.role === "COLLEGE_ADMIN" && data.user.collegeSlug) {
+          setCurrentView("CLIENT_PORTAL");
+          setSelectedCollegeSlug(data.user.collegeSlug);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+    } catch {
+      setCurrentUser(null);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAuthSession();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    setIsLoggingIn(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: loginIdentifier,
+          password: loginPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setLoginError(data.error || "Authentication failed. Please verify your credentials.");
+        return;
+      }
+      setCurrentUser(data.user);
+      if (data.user.role === "COLLEGE_ADMIN" && data.user.collegeSlug) {
+        setCurrentView("CLIENT_PORTAL");
+        setSelectedCollegeSlug(data.user.collegeSlug);
+      } else {
+        setCurrentView("SUPER_ADMIN");
+      }
+    } catch (err: any) {
+      setLoginError(err.message || "Unable to contact authentication service.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {}
+    setCurrentUser(null);
+    setLoginPassword("");
+  };
 
   // Load saved branding from API on mount
   useEffect(() => {
@@ -1004,7 +1102,25 @@ export default function AeoraxDashboard() {
   const fetchR2Objects = async (prefix = "") => {
     try {
       setIsLoadingR2(true);
-      const res = await fetch(`/api/storage/r2?prefix=${encodeURIComponent(prefix)}`);
+      let url = "/api/storage/r2";
+      const params = new URLSearchParams();
+
+      if (currentView === "CLIENT_PORTAL" && activeCollege) {
+        params.set("collegeSlug", activeCollege.slug);
+      } else if (selectedR2CollegeFilter !== "ALL") {
+        params.set("collegeSlug", selectedR2CollegeFilter);
+      }
+
+      if (prefix) {
+        params.set("prefix", prefix);
+      }
+
+      const queryString = params.toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
+
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success && data.objects && Array.isArray(data.objects.objects)) {
         setR2Objects(data.objects.objects);
@@ -1015,6 +1131,75 @@ export default function AeoraxDashboard() {
       console.error("Failed to list R2 objects:", e);
     } finally {
       setIsLoadingR2(false);
+    }
+  };
+
+  const handleSimulateBBBRecordingMove = async () => {
+    try {
+      setIsSimulatingBBBMove(true);
+      setBbbMoveSuccessMsg(null);
+      const targetCollege =
+        currentView === "CLIENT_PORTAL" && activeCollege
+          ? activeCollege
+          : colleges.find((c) => c.slug === selectedR2CollegeFilter) || colleges[0];
+
+      if (!targetCollege) {
+        alert("Please select a college institution to simulate recording migration.");
+        return;
+      }
+
+      const targetSlug = targetCollege.slug;
+      const meetingId = `bbb-${targetSlug}-class-${Date.now()}`;
+      const testR2Key = `${targetSlug}/recordings/${meetingId}/presentation.tar.gz`;
+      const dummyPayload = `Aeorax BigBlueButton Multi-Tenant Recording Package\nCollege: ${targetCollege.name} (${targetSlug})\nMeeting: ${meetingId}\nClassroom: Live Virtual Lecture\nStorage Tier: Zero-Egress Cloudflare R2\nTimestamp: ${new Date().toISOString()}`;
+
+      // 1. Direct upload into tenant's isolated folder in R2
+      const uploadRes = await fetch("/api/storage/r2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upload-direct",
+          key: testR2Key,
+          content: dummyPayload,
+          contentType: "application/gzip",
+        }),
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.success) {
+        alert(uploadData.error || "Upload to tenant folder failed");
+        return;
+      }
+
+      // 2. Ingest into database recording table
+      const ingestRes = await fetch("/api/recordings/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bbbRecordId: meetingId,
+          collegeSlug: targetSlug,
+          title: `Lecture Session (${targetCollege.name})`,
+          durationSeconds: 3600,
+          sizeBytes: 157286400,
+          r2Key: testR2Key,
+          r2Bucket: "aeorax-live",
+          sharedSecret: "aeorax2026!",
+        }),
+      });
+      const ingestData = await ingestRes.json();
+
+      if (ingestData.success) {
+        setBbbMoveSuccessMsg(
+          `Class ended on live node! Recording migrated to R2 isolated folder: ${testR2Key}`
+        );
+        await fetchR2Objects();
+        setTimeout(() => setBbbMoveSuccessMsg(null), 8000);
+      } else {
+        alert(ingestData.error || "Failed to ingest recording into database");
+      }
+    } catch (e: any) {
+      alert(e.message || "Recording migration simulation error");
+    } finally {
+      setIsSimulatingBBBMove(false);
     }
   };
 
@@ -1124,9 +1309,215 @@ export default function AeoraxDashboard() {
     );
   };
 
+  // If verifying session on initial load
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#07090e] text-slate-100 flex items-center justify-center font-sans">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center font-black text-white text-2xl shadow-xl shadow-blue-500/30 animate-pulse mx-auto">
+            A
+          </div>
+          <div className="text-sm font-bold tracking-wide text-slate-300">
+            Verifying Aeorax Security Session...
+          </div>
+          <p className="text-xs text-slate-500">Checking authenticated credentials against PostgreSQL cluster</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not logged in: Render Aeorax Live Production Login Layer
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-[#07090e] to-black text-slate-100 flex flex-col justify-center items-center p-4 sm:p-6 font-sans relative overflow-hidden">
+        {/* Ambient background glows */}
+        <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDelay: "2s" }}></div>
+
+        <div className="w-full max-w-md space-y-6 relative z-10">
+          {/* Logo & Brand Header */}
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center font-black text-white text-2xl shadow-xl shadow-indigo-500/25 mx-auto transform hover:scale-105 transition duration-300">
+              A
+            </div>
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Aeorax Live
+            </h1>
+            <p className="text-xs text-slate-400">
+              Fleet Orchestration & Multi-Tenant BigBlueButton Management
+            </p>
+          </div>
+
+          {/* Login Card */}
+          <div className="bg-[#0f1422]/90 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+            {/* Role / Portal Selector */}
+            <div className="grid grid-cols-2 p-1 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginRole("SUPER_ADMIN");
+                  setLoginIdentifier("superadmin@aeoraxlive.com");
+                  setLoginPassword("AdminPassword123!");
+                  setLoginError(null);
+                }}
+                className={`flex items-center justify-center space-x-1.5 py-2.5 rounded-xl transition ${
+                  loginRole === "SUPER_ADMIN"
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Super Admin</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginRole("COLLEGE_ADMIN");
+                  setLoginIdentifier("oxford-intl");
+                  setLoginPassword("sec_oxford_bbb_secret_998877");
+                  setLoginError(null);
+                }}
+                className={`flex items-center justify-center space-x-1.5 py-2.5 rounded-xl transition ${
+                  loginRole === "COLLEGE_ADMIN"
+                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>College Client</span>
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {loginError && (
+              <div className="p-3.5 rounded-2xl bg-rose-950/50 border border-rose-800/60 text-xs text-rose-300 font-medium flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  {loginRole === "SUPER_ADMIN" ? "Admin Email or Username" : "College Subdomain Slug or Email"}
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    {loginRole === "SUPER_ADMIN" ? <Mail className="w-4 h-4" /> : <Building className="w-4 h-4" />}
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={loginIdentifier}
+                    onChange={(e) => setLoginIdentifier(e.target.value)}
+                    placeholder={loginRole === "SUPER_ADMIN" ? "admin@aeoraxlive.com" : "e.g. oxford-intl or admin@college.edu"}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  {loginRole === "SUPER_ADMIN" ? "Admin Password" : "API Secret / Client Password"}
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Lock className="w-4 h-4" />
+                  </span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Enter account password or API secret"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 transition"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoggingIn}
+                className={`w-full py-3 rounded-xl font-bold text-xs text-white shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 ${
+                  loginRole === "SUPER_ADMIN"
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 shadow-blue-500/25"
+                    : "bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-600 shadow-purple-500/25"
+                } disabled:opacity-50`}
+              >
+                {isLoggingIn ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Authenticating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Sign In to {loginRole === "SUPER_ADMIN" ? "Super Admin" : "Client Portal"}</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Quick Demo Access Badges */}
+            <div className="pt-2 border-t border-slate-800/80">
+              <div className="text-[10px] uppercase font-bold text-slate-500 mb-2">1-Click Fast Access</div>
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginRole("SUPER_ADMIN");
+                    setLoginIdentifier("superadmin@aeoraxlive.com");
+                    setLoginPassword("AdminPassword123!");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/50 text-blue-300 hover:bg-blue-900/60 transition"
+                >
+                  ⚡ Super Admin (Full Fleet)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginRole("COLLEGE_ADMIN");
+                    setLoginIdentifier("oxford-intl");
+                    setLoginPassword("sec_oxford_bbb_secret_998877");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-800/50 text-purple-300 hover:bg-purple-900/60 transition"
+                >
+                  🎓 Oxford College Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginRole("SUPER_ADMIN");
+                    setLoginIdentifier("admin");
+                    setLoginPassword("aeorax2026!");
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 hover:bg-emerald-900/60 transition"
+                >
+                  🔑 Master Root Key
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-center text-slate-500 font-mono">
+            Zero-Trust Fleet Authentication • AES-256 Session Signed • Multi-Tenant RBAC Active
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#07090e] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* Top Navigation Bar with View Switcher */}
+      {/* Top Navigation Bar with View Switcher & User Profile */}
       <header className="border-b border-slate-200/90 dark:border-slate-800/80 bg-white/85 dark:bg-[#0c101a]/85 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between shadow-xs">
         <div className="flex items-center space-x-4">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center font-black text-white text-xl shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-transform duration-200">
@@ -1158,35 +1549,37 @@ export default function AeoraxDashboard() {
         </div>
 
         {/* Global Controls & PORTAL SWITCHER */}
-        <div className="flex items-center space-x-4 text-sm">
-          {/* View Switcher Toggle Button */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <button
-              onClick={() => setCurrentView("SUPER_ADMIN")}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
-                currentView === "SUPER_ADMIN"
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Super Admin</span>
-            </button>
-            <button
-              onClick={() => setCurrentView("CLIENT_PORTAL")}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
-                currentView === "CLIENT_PORTAL"
-                  ? "bg-purple-600 text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>Client Account</span>
-            </button>
-          </div>
+        <div className="flex items-center space-x-3 text-sm">
+          {/* View Switcher Toggle Button (Only for Super Admin) */}
+          {currentUser.role === "SUPER_ADMIN" && (
+            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => setCurrentView("SUPER_ADMIN")}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+                  currentView === "SUPER_ADMIN"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Super Admin</span>
+              </button>
+              <button
+                onClick={() => setCurrentView("CLIENT_PORTAL")}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 ${
+                  currentView === "CLIENT_PORTAL"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>Client Account</span>
+              </button>
+            </div>
+          )}
 
-          {/* College Selector (When in Client Portal) */}
-          {currentView === "CLIENT_PORTAL" && (
+          {/* College Selector (When in Client Portal and Super Admin) */}
+          {currentView === "CLIENT_PORTAL" && currentUser.role === "SUPER_ADMIN" && (
             <select
               value={selectedCollegeSlug}
               onChange={(e) => setSelectedCollegeSlug(e.target.value)}
@@ -1200,14 +1593,39 @@ export default function AeoraxDashboard() {
             </select>
           )}
 
+          {/* User Profile Pill */}
+          <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-[11px] shadow-xs">
+              {currentUser.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="hidden sm:block text-left">
+              <div className="font-bold text-slate-900 dark:text-white leading-tight truncate max-w-[130px]">
+                {currentUser.name}
+              </div>
+              <div className="text-[10px] text-slate-500 font-medium">
+                {currentUser.role === "SUPER_ADMIN" ? "Super Admin" : (currentUser.collegeName || "Institution Admin")}
+              </div>
+            </div>
+          </div>
+
           {/* Theme Switcher */}
           <button
             onClick={toggleTheme}
             aria-label="Toggle Theme"
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all duration-200 shadow-xs hover:shadow-md transform hover:scale-105"
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/90 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all duration-200 shadow-xs hover:shadow-md transform hover:scale-105"
             title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
           >
             {theme === "light" ? <Moon className="w-4 h-4 text-indigo-600" /> : <Sun className="w-4 h-4 text-amber-400" />}
+          </button>
+
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/40 bg-rose-50/80 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-bold transition flex items-center space-x-1.5 shadow-xs"
+            title="Sign Out of Aeorax Panel"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </header>
@@ -3820,6 +4238,68 @@ export default function AeoraxDashboard() {
 
               {/* R2 Live Object Browser & Archive */}
               <div className="glass-card p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 space-y-4">
+                {/* Multi-Tenant Isolation Banner & Controls */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50/50 to-blue-50 dark:from-purple-950/20 dark:via-slate-900/60 dark:to-blue-950/20 border border-purple-200/80 dark:border-purple-800/40 flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 rounded-xl bg-purple-600 text-white shadow-sm">
+                      <Folder className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                          Tenant Storage Isolation:
+                        </span>
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 font-mono">
+                          {selectedR2CollegeFilter === "ALL" ? "aeorax-live/ [Global View]" : `aeorax-live/${selectedR2CollegeFilter}/recordings/`}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Classes record to live server NVMe, and automatically migrate into each college's private folder in R2 upon completion.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2.5">
+                    {/* College Folder Selector */}
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-[11px] font-bold text-slate-500">Filter Tenant:</span>
+                      <select
+                        value={selectedR2CollegeFilter}
+                        onChange={(e) => {
+                          setSelectedR2CollegeFilter(e.target.value);
+                          setTimeout(() => fetchR2Objects(), 50);
+                        }}
+                        className="text-xs font-bold px-3 py-1.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900 text-purple-900 dark:text-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-xs"
+                      >
+                        <option value="ALL">📁 All College Directories (Global)</option>
+                        {colleges.map((c) => (
+                          <option key={c.slug} value={c.slug}>
+                            🏫 {c.name} ({c.slug}/recordings/)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Simulate Class End & Recording Move */}
+                    <button
+                      onClick={handleSimulateBBBRecordingMove}
+                      disabled={isSimulatingBBBMove}
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-purple-500/20 hover:from-purple-500 hover:to-indigo-500 flex items-center space-x-1.5 disabled:opacity-50 transition"
+                      title="Simulates meeting ending on live node and offloading to college R2 folder"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>{isSimulatingBBBMove ? "Moving to R2..." : "Simulate Class End -> Move to R2"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {bbbMoveSuccessMsg && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-bold flex items-center space-x-2 shadow-xs">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{bbbMoveSuccessMsg}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
