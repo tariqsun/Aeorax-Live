@@ -1581,12 +1581,12 @@ export default function AeoraxDashboard() {
                         <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">
                           1-Click Fresh Ubuntu VPS Auto-Installer & Monitoring Agent
                         </h4>
-                        <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                          Ubuntu 22.04 LTS
+                        <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          Ubuntu 24.04 LTS (Latest) & 22.04
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Run this single command in your fresh VPS terminal. It installs BBB 3.0, Let's Encrypt SSL, UFW WebRTC firewall, and the real-time telemetry agent.
+                        Run this command in your fresh VPS terminal. Auto-detects OS and installs BigBlueButton 4.0 (for Ubuntu 24.04 Noble) or BBB 3.0 (for 22.04 Jammy), Let's Encrypt SSL, UFW WebRTC firewall, and live telemetry agent.
                       </p>
                     </div>
                   </div>
@@ -1633,7 +1633,7 @@ export default function AeoraxDashboard() {
                 <div className="relative group">
                   <pre className="p-3.5 rounded-2xl bg-slate-950 text-slate-200 font-mono text-xs overflow-x-auto border border-slate-800 shadow-inner flex items-center justify-between">
                     <code className="text-purple-300 selection:bg-purple-600 selection:text-white">
-                      curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn {quickInstallFqdn || "node1.aeoraxlive.com"} --email {quickInstallEmail || "admin@aeoraxlive.com"} --panel https://master.nesthost.net
+                      curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn {quickInstallFqdn || "node1.aeoraxlive.com"} --email {quickInstallEmail || "admin@aeoraxlive.com"} --panel https://panel.nesthost.net
                     </code>
                   </pre>
                 </div>
@@ -1642,7 +1642,7 @@ export default function AeoraxDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1 text-[11px] font-bold text-slate-600 dark:text-slate-400">
                   <div className="flex items-center space-x-1.5">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>BigBlueButton 3.0.39 Stable</span>
+                    <span>BigBlueButton 4.0 / 3.0 Cluster</span>
                   </div>
                   <div className="flex items-center space-x-1.5">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -2117,7 +2117,7 @@ export default function AeoraxDashboard() {
                             </span>
                           </div>
                           <p className="text-xs text-slate-500">
-                            DNS verification, Ubuntu 22.04 LTS preflight, automated BBB 3.0 installation & telemetry client
+                            DNS verification, Ubuntu 24.04/22.04 LTS preflight, automated BigBlueButton 4.0/3.0 installation & telemetry client
                           </p>
                         </div>
                       </div>
@@ -2559,7 +2559,7 @@ export default function AeoraxDashboard() {
                             BigBlueButton Node Successfully Provisioned!
                           </h4>
                           <p className="text-xs text-slate-500 max-w-md mx-auto">
-                            The node is running BigBlueButton 3.0.39, secured with Let's Encrypt SSL, and actively linked into Scalelite load balancing.
+                            The node is running BigBlueButton {completedNodeResult?.bbbVersion || completedNodeResult?.node?.bbbVersion || "4.0.0"}, secured with Let's Encrypt SSL, and actively linked into Scalelite load balancing.
                           </p>
                         </div>
 
@@ -2586,7 +2586,9 @@ export default function AeoraxDashboard() {
                           </div>
                           <div>
                             <span className="text-[10px] uppercase font-bold text-slate-500">BBB Version</span>
-                            <div className="font-bold text-slate-900 dark:text-white mt-0.5">v3.0.39 Stable</div>
+                            <div className="font-bold text-slate-900 dark:text-white mt-0.5">
+                              v{(completedNodeResult?.bbbVersion || completedNodeResult?.node?.bbbVersion || "4.0.0").replace(/^v/, "")} Stable
+                            </div>
                           </div>
                           <div>
                             <span className="text-[10px] uppercase font-bold text-slate-500">Scalelite Balancing</span>
@@ -3824,7 +3826,7 @@ export default function AeoraxDashboard() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-[#0c101a]/70 backdrop-blur py-4 px-6 text-center text-xs text-slate-500 font-medium">
-        Aeorax Live Managed BigBlueButton Control Plane • BigBlueButton 3.0.39 • PostgreSQL 16 • Redis 7 • Cloudflare R2
+        Aeorax Live Managed BigBlueButton Control Plane • BigBlueButton 4.0 / 3.0 • PostgreSQL 16 • Redis 7 • Cloudflare R2
       </footer>
     </div>
   );

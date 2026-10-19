@@ -154,7 +154,7 @@ model Node {
   cpuCores               Int          @default(8)
   ramGb                  Int          @default(16)
   diskGb                 Int          @default(100)
-  bbbVersion             String       @default("3.0.39")
+  bbbVersion             String       @default("4.0.0")
   scaleliteRegistered    Boolean      @default(false)
   activeMeetingsCount    Int          @default(0)
   activeParticipantsCount Int         @default(0)

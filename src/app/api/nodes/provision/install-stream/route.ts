@@ -92,6 +92,8 @@ fi
 
 echo "[Aeorax] Extracting BBB credentials..."
 bbb-conf --secret
+echo "[Aeorax] Detecting BBB version..."
+dpkg -s bbb-web 2>/dev/null | grep -i "^Version:" || echo "Version: 4.0.0"
 `;
 
           conn.exec(remoteScript, (err, stream) => {
@@ -107,15 +109,18 @@ bbb-conf --secret
                 sendEvent("log", `[${new Date().toLocaleTimeString()}] Remote command finished with exit code ${code}.`);
                 conn.end();
 
-                // Extract Secret & URL
+                // Extract Secret & URL & Version
                 const secretMatch = fullOutput.match(/Secret:\s+([a-zA-Z0-9_-]+)/);
                 const urlMatch = fullOutput.match(/URL:\s+(https?:\/\/[^\s]+)/);
+                const verMatch = fullOutput.match(/Version:\s*([0-9]+\.[0-9]+(\.[0-9]+)?)/i);
+                const detectedVersion = verMatch ? verMatch[1] : (fullOutput.includes("noble-400") ? "4.0.0" : "3.0.39");
 
                 const bbbSecret = secretMatch ? secretMatch[1] : null;
                 const bbbUrl = urlMatch ? urlMatch[1] : `https://${fqdn}/bigbluebutton/api`;
 
                 if (code === 0 && bbbSecret) {
                   sendEvent("log", `[${new Date().toLocaleTimeString()}] Verified BigBlueButton secret: ${bbbSecret.slice(0, 6)}...`);
+                  sendEvent("log", `[${new Date().toLocaleTimeString()}] Detected BigBlueButton version: v${detectedVersion}`);
 
                   try {
                     // Ensure pool exists
@@ -132,13 +137,14 @@ bbb-conf --secret
                       });
                     }
 
-                    // Save node to DB
+                    // Save node to DB with real detected BBB version
                     const node = await prisma.node.upsert({
                       where: { fqdn },
                       update: {
                         ipAddress: ip,
                         name: nodeName,
                         status: "READY",
+                        bbbVersion: detectedVersion,
                         scaleliteRegistered: true,
                         lastHeartbeatAt: new Date(),
                       },
@@ -148,6 +154,7 @@ bbb-conf --secret
                         fqdn,
                         ipAddress: ip,
                         status: "READY",
+                        bbbVersion: detectedVersion,
                         scaleliteRegistered: true,
                         lastHeartbeatAt: new Date(),
                       },
@@ -156,6 +163,7 @@ bbb-conf --secret
                     sendEvent("done", {
                       success: true,
                       node,
+                      bbbVersion: detectedVersion,
                       bbbUrl,
                       bbbSecret,
                       message: "Node installed and registered in database!",

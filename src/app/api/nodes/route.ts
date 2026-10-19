@@ -13,27 +13,34 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    const nodes = dbNodes.map((n) => ({
-      id: n.id,
-      name: n.name,
-      fqdn: n.fqdn,
-      ip: n.ipAddress,
-      status: n.status,
-      cpu: n.cpuUsagePercent || 0,
-      steal: 0,
-      ramPercent: 0,
-      ramUsedGb: 0,
-      ramTotalGb: n.ramGb || 16,
-      diskPercent: 0,
-      diskUsedGb: 0,
-      diskTotalGb: n.diskGb || 100,
-      meetings: n.activeMeetingsCount || 0,
-      participants: n.activeParticipantsCount || 0,
-      webcams: 0,
-      bbbVersion: n.bbbVersion || "4.0.0",
-      scaleliteRegistered: n.scaleliteRegistered,
-      createdAt: n.createdAt,
-    }));
+    const nodes = dbNodes.map((n) => {
+      let ver = n.bbbVersion;
+      // Auto-migrate legacy 3.0.39 default to 4.0.0 for Ubuntu 24.04 nodes
+      if (!ver || ver === "3.0.39") {
+        ver = "4.0.0";
+      }
+      return {
+        id: n.id,
+        name: n.name,
+        fqdn: n.fqdn,
+        ip: n.ipAddress,
+        status: n.status,
+        cpu: n.cpuUsagePercent || 0,
+        steal: 0,
+        ramPercent: 0,
+        ramUsedGb: 0,
+        ramTotalGb: n.ramGb || 16,
+        diskPercent: 0,
+        diskUsedGb: 0,
+        diskTotalGb: n.diskGb || 100,
+        meetings: n.activeMeetingsCount || 0,
+        participants: n.activeParticipantsCount || 0,
+        webcams: 0,
+        bbbVersion: ver,
+        scaleliteRegistered: n.scaleliteRegistered,
+        createdAt: n.createdAt,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -42,6 +49,33 @@ export async function GET() {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to load nodes" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/nodes
+ * Update a node's bbbVersion, name, or status.
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, fqdn, bbbVersion, status, name } = body;
+
+    const updated = await prisma.node.update({
+      where: id ? { id } : { fqdn },
+      data: {
+        ...(bbbVersion ? { bbbVersion } : {}),
+        ...(status ? { status } : {}),
+        ...(name ? { name } : {}),
+      },
+    });
+
+    return NextResponse.json({ success: true, node: updated });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error?.message || "Failed to update node" },
       { status: 500 }
     );
   }
