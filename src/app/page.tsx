@@ -34,6 +34,7 @@ import {
   X,
   AlertTriangle,
   Terminal,
+  Palette,
 } from "lucide-react";
 
 interface NodeData {
@@ -89,10 +90,69 @@ export default function AeoraxDashboard() {
   const [selectedCollegeSlug, setSelectedCollegeSlug] = useState<string>("oxford-intl");
 
   // Tab navigation
-  const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "colleges" | "moodle" | "recordings" | "advisor">("overview");
+  const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "colleges" | "moodle" | "recordings" | "advisor" | "branding">("overview");
   const [clientTab, setClientTab] = useState<"rooms" | "teachers" | "recordings">("rooms");
   const [selectedMoodleCollegeSlug, setSelectedMoodleCollegeSlug] = useState<string>("oxford-intl");
   const [moodleTestResult, setMoodleTestResult] = useState<"idle" | "testing" | "success">("idle");
+
+  // Dynamic Classroom Branding & White-Label State
+  const [selectedBrandingCollegeSlug, setSelectedBrandingCollegeSlug] = useState<string>("oxford-intl");
+  const [brandingSettings, setBrandingSettings] = useState<Record<string, {
+    whiteLabelEnabled: boolean;
+    brandName: string;
+    primaryColor: string;
+    logoUrl: string;
+    bannerText: string;
+    welcomePdfUrl: string;
+    customCss: string;
+  }>>({
+    "default": {
+      whiteLabelEnabled: false,
+      brandName: "Aeorax Live",
+      primaryColor: "#6366f1",
+      logoUrl: "",
+      bannerText: "Welcome to Aeorax Live Virtual Classroom",
+      welcomePdfUrl: "https://master.nesthost.net/slides/welcome.pdf",
+      customCss: "",
+    },
+    "oxford-intl": {
+      whiteLabelEnabled: true,
+      brandName: "Oxford International College",
+      primaryColor: "#0284c7",
+      logoUrl: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=120&auto=format&fit=crop&q=80",
+      bannerText: "Welcome Oxford Students & Faculty",
+      welcomePdfUrl: "https://master.nesthost.net/slides/oxford-welcome.pdf",
+      customCss: "",
+    },
+    "stanford-demo": {
+      whiteLabelEnabled: true,
+      brandName: "Stanford Demo Institute",
+      primaryColor: "#e11d48",
+      logoUrl: "",
+      bannerText: "Stanford Medical Lectures & Seminars",
+      welcomePdfUrl: "",
+      customCss: "",
+    },
+    "cambridge-biz": {
+      whiteLabelEnabled: false,
+      brandName: "Cambridge Business School",
+      primaryColor: "#10b981",
+      logoUrl: "",
+      bannerText: "Cambridge Business Case Studies",
+      welcomePdfUrl: "",
+      customCss: "",
+    },
+    "mit-online": {
+      whiteLabelEnabled: false,
+      brandName: "MIT Online Academy",
+      primaryColor: "#f59e0b",
+      logoUrl: "",
+      bannerText: "MIT Engineering Lab",
+      welcomePdfUrl: "",
+      customCss: "",
+    },
+  });
+  const [brandingSaveToast, setBrandingSaveToast] = useState<boolean>(false);
 
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
@@ -963,6 +1023,7 @@ export default function AeoraxDashboard() {
               { id: "overview", label: "Overview", icon: Activity },
               { id: "nodes", label: "BBB Meeting Nodes", icon: Server },
               { id: "colleges", label: "Colleges & Quotas", icon: GraduationCap },
+              { id: "branding", label: "Classroom Branding & Theme", icon: Palette },
               { id: "moodle", label: "Moodle & LMS Gateway", icon: Lock },
               { id: "recordings", label: "Recording & R2 Pipeline", icon: Video },
               { id: "advisor", label: "Smart Capacity Advisor", icon: ShieldCheck },
@@ -2477,6 +2538,554 @@ export default function AeoraxDashboard() {
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                       Node 04 is currently in DRAIN mode. Scalelite is gracefully allowing existing meetings to conclude before kernel updates.
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SUPER ADMIN TAB 7: CLASSROOM BRANDING & DYNAMIC WHITE-LABEL ENGINE */}
+          {adminTab === "branding" && (
+            <div className="space-y-6">
+              {/* Header Box */}
+              <div className="glass-card p-6 rounded-3xl flex items-center justify-between flex-wrap gap-4 border border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center space-x-3.5">
+                  <div className="p-3 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25">
+                    <Palette className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2.5">
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">
+                        Classroom Branding & Dynamic White-Label Engine
+                      </h3>
+                      <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        Zero Node Config Required
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Manage global brand defaults or assign custom white-label logos, colors, banners, and welcome slides per college.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-slate-500">Target Mechanism:</span>
+                  <span className="text-xs px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 font-mono text-purple-700 dark:text-purple-300 font-bold">
+                    BigBlueButton 3.0 HTML5 Dynamic Injection
+                  </span>
+                </div>
+              </div>
+
+              {/* Toast Notification */}
+              {brandingSaveToast && (
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2.5 shadow-sm animate-fadeIn">
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>Branding settings updated successfully! Dynamic CSS is active for all new sessions on Scalelite nodes.</span>
+                </div>
+              )}
+
+              {/* Two Column Setup: Editor + Live Classroom Simulator */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* LEFT COLUMN: Controls & College Selectors (7 Cols) */}
+                <div className="lg:col-span-7 space-y-5">
+                  {/* Global Default Brand Summary Card */}
+                  <div className="glass-card p-5.5 rounded-3xl border border-indigo-200/70 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/50 dark:from-indigo-950/20 dark:via-slate-900/60 dark:to-purple-950/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+                        <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                          Global Platform Default Brand (Fallback)
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                        Default: Aeorax Live
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                      All colleges with <strong>White-Label OFF</strong> automatically inherit your primary brand ("Aeorax Live", Indigo #6366f1 accent, standard welcome slides). Meeting nodes remain completely clean and stateless.
+                    </p>
+                  </div>
+
+                  {/* Per-College White-Label Editor Card */}
+                  <div className="glass-card p-6 rounded-3xl space-y-5">
+                    {/* College Selector Tabs */}
+                    <div>
+                      <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-2">
+                        Select Client College / Tenant
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { slug: "oxford-intl", name: "Oxford Int'l" },
+                          { slug: "stanford-demo", name: "Stanford Demo" },
+                          { slug: "cambridge-biz", name: "Cambridge Biz" },
+                          { slug: "mit-online", name: "MIT Academy" },
+                        ].map((col) => {
+                          const isSelected = selectedBrandingCollegeSlug === col.slug;
+                          const isWhitelabeled = brandingSettings[col.slug]?.whiteLabelEnabled;
+                          return (
+                            <button
+                              key={col.slug}
+                              onClick={() => setSelectedBrandingCollegeSlug(col.slug)}
+                              className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+                                isSelected
+                                  ? "border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20"
+                                  : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                              }`}
+                            >
+                              <div className="font-bold text-xs truncate">{col.name}</div>
+                              <div className="mt-1 flex items-center justify-between text-[10px]">
+                                <span className="font-mono text-slate-400">{col.slug}</span>
+                                <span
+                                  className={`px-1.5 py-0.2 rounded font-black ${
+                                    isWhitelabeled
+                                      ? "bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300"
+                                      : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                                  }`}
+                                >
+                                  {isWhitelabeled ? "Custom" : "Default"}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* White-Label Toggle */}
+                    {selectedBrandingCollegeSlug && (
+                      <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
+                        <div>
+                          <div className="font-extrabold text-xs text-slate-900 dark:text-white">
+                            Enable Custom White-Labeling for {brandingSettings[selectedBrandingCollegeSlug]?.brandName}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            Override default Aeorax branding with this college's custom logo, colors, and welcome presentation.
+                          </div>
+                        </div>
+
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled || false}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setBrandingSettings({
+                                ...brandingSettings,
+                                [selectedBrandingCollegeSlug]: {
+                                  ...brandingSettings[selectedBrandingCollegeSlug],
+                                  whiteLabelEnabled: checked,
+                                },
+                              });
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Branding Editor Form */}
+                    {selectedBrandingCollegeSlug && (
+                      <div className={`space-y-4 transition ${!brandingSettings[selectedBrandingCollegeSlug]?.whiteLabelEnabled ? "opacity-40 pointer-events-none" : ""}`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                              Display Brand Name
+                            </label>
+                            <input
+                              type="text"
+                              value={brandingSettings[selectedBrandingCollegeSlug]?.brandName || ""}
+                              onChange={(e) => {
+                                setBrandingSettings({
+                                  ...brandingSettings,
+                                  [selectedBrandingCollegeSlug]: {
+                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                    brandName: e.target.value,
+                                  },
+                                });
+                              }}
+                              className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                              Classroom Logo URL
+                            </label>
+                            <input
+                              type="text"
+                              value={brandingSettings[selectedBrandingCollegeSlug]?.logoUrl || ""}
+                              placeholder="https://domain.com/logo.png"
+                              onChange={(e) => {
+                                setBrandingSettings({
+                                  ...brandingSettings,
+                                  [selectedBrandingCollegeSlug]: {
+                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                    logoUrl: e.target.value,
+                                  },
+                                });
+                              }}
+                              className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Color Picker & Preset Swatches */}
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                            Classroom Primary Accent Color
+                          </label>
+                          <div className="flex items-center space-x-3 flex-wrap gap-y-2">
+                            {[
+                              { label: "Ocean Blue", hex: "#0284c7" },
+                              { label: "Crimson Rose", hex: "#e11d48" },
+                              { label: "Emerald Green", hex: "#10b981" },
+                              { label: "Royal Indigo", hex: "#6366f1" },
+                              { label: "Amber Gold", hex: "#f59e0b" },
+                              { label: "Deep Violet", hex: "#7c3aed" },
+                            ].map((preset) => {
+                              const isCurrent = brandingSettings[selectedBrandingCollegeSlug]?.primaryColor === preset.hex;
+                              return (
+                                <button
+                                  key={preset.hex}
+                                  type="button"
+                                  onClick={() => {
+                                    setBrandingSettings({
+                                      ...brandingSettings,
+                                      [selectedBrandingCollegeSlug]: {
+                                        ...brandingSettings[selectedBrandingCollegeSlug],
+                                        primaryColor: preset.hex,
+                                      },
+                                    });
+                                  }}
+                                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
+                                    isCurrent
+                                      ? "ring-2 ring-purple-500 border-transparent shadow-sm"
+                                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                  }`}
+                                >
+                                  <span className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: preset.hex }} />
+                                  <span className="text-slate-700 dark:text-slate-300 text-[11px]">{preset.label}</span>
+                                </button>
+                              );
+                            })}
+
+                            <div className="flex items-center space-x-2 ml-auto">
+                              <input
+                                type="color"
+                                value={brandingSettings[selectedBrandingCollegeSlug]?.primaryColor || "#6366f1"}
+                                onChange={(e) => {
+                                  setBrandingSettings({
+                                    ...brandingSettings,
+                                    [selectedBrandingCollegeSlug]: {
+                                      ...brandingSettings[selectedBrandingCollegeSlug],
+                                      primaryColor: e.target.value,
+                                    },
+                                  });
+                                }}
+                                className="w-8 h-8 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer p-0.5 bg-transparent"
+                              />
+                              <input
+                                type="text"
+                                value={brandingSettings[selectedBrandingCollegeSlug]?.primaryColor || "#6366f1"}
+                                onChange={(e) => {
+                                  setBrandingSettings({
+                                    ...brandingSettings,
+                                    [selectedBrandingCollegeSlug]: {
+                                      ...brandingSettings[selectedBrandingCollegeSlug],
+                                      primaryColor: e.target.value,
+                                    },
+                                  });
+                                }}
+                                className="w-24 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-800 font-mono text-xs font-bold bg-white dark:bg-slate-900"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Banner & Presentation */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                              Classroom Welcome Banner
+                            </label>
+                            <input
+                              type="text"
+                              value={brandingSettings[selectedBrandingCollegeSlug]?.bannerText || ""}
+                              placeholder="e.g. Welcome Oxford Students & Faculty"
+                              onChange={(e) => {
+                                setBrandingSettings({
+                                  ...brandingSettings,
+                                  [selectedBrandingCollegeSlug]: {
+                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                    bannerText: e.target.value,
+                                  },
+                                });
+                              }}
+                              className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                              Default Welcome Slide (PDF URL)
+                            </label>
+                            <input
+                              type="text"
+                              value={brandingSettings[selectedBrandingCollegeSlug]?.welcomePdfUrl || ""}
+                              placeholder="https://domain.com/welcome-slide.pdf"
+                              onChange={(e) => {
+                                setBrandingSettings({
+                                  ...brandingSettings,
+                                  [selectedBrandingCollegeSlug]: {
+                                    ...brandingSettings[selectedBrandingCollegeSlug],
+                                    welcomePdfUrl: e.target.value,
+                                  },
+                                });
+                              }}
+                              className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="pt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBrandingSaveToast(true);
+                              setTimeout(() => setBrandingSaveToast(false), 4000);
+                            }}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-extrabold transition shadow-md shadow-purple-500/25 flex items-center space-x-1.5 transform hover:scale-102"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span>Save & Activate Branding</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: Live Interactive BBB Classroom Simulator (5 Cols) */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                      Live BigBlueButton 3.0 Classroom Simulator
+                    </span>
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
+                      Real-time CSS Reflection
+                    </span>
+                  </div>
+
+                  {/* HTML5 Client Simulated Browser Frame */}
+                  {(() => {
+                    const currentConfig = brandingSettings[selectedBrandingCollegeSlug] || brandingSettings["default"];
+                    const effectiveColor = currentConfig.whiteLabelEnabled ? currentConfig.primaryColor : "#6366f1";
+                    const effectiveName = currentConfig.whiteLabelEnabled ? currentConfig.brandName : "Aeorax Live";
+                    const effectiveBanner = currentConfig.whiteLabelEnabled ? currentConfig.bannerText : "Welcome to Aeorax Live Virtual Classroom";
+
+                    return (
+                      <div className="rounded-3xl border border-slate-300 dark:border-slate-800 bg-[#0c101a] text-white shadow-2xl overflow-hidden flex flex-col h-[520px]">
+                        {/* Browser Bar */}
+                        <div className="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-xs">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            <span className="text-slate-400 font-mono text-[10px] ml-2 truncate">
+                              https://node1.aeoraxlive.com/html5client/join
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                            SSL Verified
+                          </span>
+                        </div>
+
+                        {/* BBB Classroom Top Navbar */}
+                        <div
+                          className="px-4 py-2.5 border-b flex items-center justify-between transition-colors duration-300"
+                          style={{
+                            backgroundColor: "#111827",
+                            borderBottomColor: `${effectiveColor}60`,
+                          }}
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            {currentConfig.whiteLabelEnabled && currentConfig.logoUrl ? (
+                              <img
+                                src={currentConfig.logoUrl}
+                                alt="Logo"
+                                className="w-6 h-6 rounded object-cover shadow-sm"
+                                onError={(e) => {
+                                  // fallback if image fails
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div
+                                className="w-6 h-6 rounded flex items-center justify-center font-black text-xs text-white shadow-sm"
+                                style={{ backgroundColor: effectiveColor }}
+                              >
+                                {effectiveName.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-xs truncate max-w-[140px] text-white">
+                                {effectiveName}
+                              </div>
+                              <div className="text-[9px] text-slate-400 font-mono">Room: Biology 101</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-800 text-[10px] font-bold text-rose-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                              <span>REC 00:24:18</span>
+                            </div>
+                            <div
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold text-white shadow-xs"
+                              style={{ backgroundColor: effectiveColor }}
+                            >
+                              Leave
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* BBB Body: User list + Whiteboard */}
+                        <div className="flex-1 flex overflow-hidden">
+                          {/* User List Panel (Left) */}
+                          <div className="w-40 bg-[#0f172a] border-r border-slate-800 p-2.5 space-y-3 flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                                Users (4)
+                              </div>
+                              <div className="space-y-1.5">
+                                <div className="flex items-center space-x-2 p-1.5 rounded-lg bg-slate-800/60">
+                                  <div
+                                    className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shrink-0"
+                                    style={{ backgroundColor: effectiveColor }}
+                                  >
+                                    Prof
+                                  </div>
+                                  <div className="truncate text-[11px] font-bold text-white">Dr. Robert (Mod)</div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-1.5 rounded-lg">
+                                  <div className="w-5 h-5 rounded-full bg-slate-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    AS
+                                  </div>
+                                  <div className="truncate text-[11px] text-slate-300">Ali Shan</div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-1.5 rounded-lg">
+                                  <div className="w-5 h-5 rounded-full bg-slate-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    ZW
+                                  </div>
+                                  <div className="truncate text-[11px] text-slate-300">Zoya Malik</div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-1.5 rounded-lg">
+                                  <div className="w-5 h-5 rounded-full bg-slate-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    TM
+                                  </div>
+                                  <div className="truncate text-[11px] text-slate-300">Tariq M.</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-[10px] text-slate-400">
+                              Public Chat Active
+                            </div>
+                          </div>
+
+                          {/* Center Classroom Whiteboard */}
+                          <div className="flex-1 bg-[#1e293b] p-4 flex flex-col justify-between items-center relative overflow-hidden">
+                            {/* Whiteboard Floating Toolbar */}
+                            <div className="absolute right-3 top-3 flex flex-col space-y-1.5 bg-slate-900/90 p-1.5 rounded-xl border border-slate-700 shadow-lg">
+                              <span
+                                className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-xs"
+                                style={{ backgroundColor: effectiveColor }}
+                              >
+                                ✏️
+                              </span>
+                              <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-slate-400">
+                                ⬛
+                              </span>
+                              <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-slate-400">
+                                🔤
+                              </span>
+                              <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] text-slate-400">
+                                🗑️
+                              </span>
+                            </div>
+
+                            {/* Center Presentation Slide Mockup */}
+                            <div className="w-full flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-700/80 rounded-2xl p-4 bg-slate-900/50 text-center space-y-2">
+                              <div
+                                className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto text-white shadow-md text-xl"
+                                style={{ backgroundColor: effectiveColor }}
+                              >
+                                🎓
+                              </div>
+                              <h5 className="font-extrabold text-sm text-white max-w-xs">{effectiveBanner}</h5>
+                              <p className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
+                                Powered by BigBlueButton 3.0 & Scalelite High-Availability Cluster.
+                              </p>
+                              <div
+                                className="mt-2 text-[10px] font-bold px-3 py-1 rounded-full text-white inline-block shadow-sm"
+                                style={{ backgroundColor: `${effectiveColor}` }}
+                              >
+                                Slide 1 of 12 • Presentation Ready
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bottom Media Controls Bar */}
+                        <div className="bg-slate-900 px-4 py-3 border-t border-slate-800 flex items-center justify-center space-x-3">
+                          <button
+                            type="button"
+                            className="p-2.5 rounded-full text-white shadow-md transition transform hover:scale-110"
+                            style={{ backgroundColor: effectiveColor }}
+                            title="Audio Connected"
+                          >
+                            <span className="text-xs">🎤</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="p-2.5 rounded-full text-white shadow-md transition transform hover:scale-110"
+                            style={{ backgroundColor: effectiveColor }}
+                            title="Webcam Active"
+                          >
+                            <span className="text-xs">📹</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white shadow-sm"
+                            title="Screen Share"
+                          >
+                            <span className="text-xs">🖥️</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="p-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white shadow-md"
+                            title="End Audio"
+                          >
+                            <span className="text-xs">📞</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* API Dynamic Link Card */}
+                  <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Dynamic CSS URL</span>
+                      <code className="text-purple-600 dark:text-purple-400 font-mono text-[11px] font-bold">
+                        /api/themes/{selectedBrandingCollegeSlug}
+                      </code>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                      Auto-Injected on Meeting Join
+                    </span>
                   </div>
                 </div>
               </div>

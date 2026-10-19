@@ -69,3 +69,37 @@ export function parseScopedMeetingId(scopedId: string): { collegeSlug: string; r
     roomId: scopedId.substring(separatorIndex + 1),
   };
 }
+
+export interface BBBBrandingConfig {
+  logo?: string;
+  bannerText?: string;
+  customStyleUrl?: string;
+  customStyle?: string;
+  defaultPresentation?: string;
+}
+
+/**
+ * Builds meeting create parameters with dynamic tenant branding / white-labeling
+ */
+export function buildBBBMeetingParams(
+  config: BBBMeetingConfig,
+  branding?: BBBBrandingConfig
+): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set("meetingID", config.meetingID);
+  params.set("name", config.name);
+  params.set("attendeePW", config.attendeePW);
+  params.set("moderatorPW", config.moderatorPW);
+  if (config.record !== undefined) params.set("record", config.record ? "true" : "false");
+  if (config.maxParticipants) params.set("maxParticipants", config.maxParticipants.toString());
+  if (config.logoutURL) params.set("logoutURL", config.logoutURL);
+
+  if (branding?.logo) params.set("logo", branding.logo);
+  if (branding?.bannerText) params.set("bannerText", branding.bannerText);
+  if (branding?.customStyleUrl) params.set("userdata-bbb_custom_style_url", branding.customStyleUrl);
+  if (branding?.customStyle) params.set("userdata-bbb_custom_style", branding.customStyle);
+  if (branding?.defaultPresentation) params.set("defaultPresentation", branding.defaultPresentation);
+
+  return params;
+}
+

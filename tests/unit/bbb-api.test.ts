@@ -4,6 +4,7 @@ import {
   verifyBBBChecksum,
   buildScopedMeetingId,
   parseScopedMeetingId,
+  buildBBBMeetingParams,
 } from "@/lib/bbb-api";
 
 describe("BigBlueButton API Helpers", () => {
@@ -47,5 +48,26 @@ describe("BigBlueButton API Helpers", () => {
     const invalidId = "invalidmeetingidwithoutunderscore";
     const parsed = parseScopedMeetingId(invalidId);
     expect(parsed).toBeNull();
+  });
+
+  it("builds meeting create parameters with dynamic white-label branding", () => {
+    const params = buildBBBMeetingParams(
+      {
+        meetingID: "oxford_room_1",
+        name: "Bio Class",
+        attendeePW: "ap",
+        moderatorPW: "mp",
+      },
+      {
+        logo: "https://oxford.edu/logo.png",
+        bannerText: "Oxford Virtual Classroom",
+        customStyleUrl: "https://master.nesthost.net/api/themes/oxford.css",
+      }
+    );
+
+    expect(params.get("meetingID")).toBe("oxford_room_1");
+    expect(params.get("logo")).toBe("https://oxford.edu/logo.png");
+    expect(params.get("bannerText")).toBe("Oxford Virtual Classroom");
+    expect(params.get("userdata-bbb_custom_style_url")).toBe("https://master.nesthost.net/api/themes/oxford.css");
   });
 });
