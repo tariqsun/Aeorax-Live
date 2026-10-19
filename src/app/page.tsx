@@ -315,105 +315,82 @@ export default function AeoraxDashboard() {
     setWizardStep(3);
     setInstallStatus("running");
     setInstallProgress(10);
-    setInstallStepTitle("Step 1/5: Connecting via SSH & Hardening UFW WebRTC Media Firewall...");
-    setInstallLogs([
-      `[${new Date().toLocaleTimeString()}] Initiating SSH connection to ${wizardData.ip}:${wizardData.sshPort}...`,
-      `[${new Date().toLocaleTimeString()}] Authenticated as ${wizardData.sshUser}.`,
-      `[${new Date().toLocaleTimeString()}] Verifying Ubuntu 22.04 LTS (Jammy) preflight and UTF-8 locales...`,
-      `[${new Date().toLocaleTimeString()}] Enabling UFW: Ports 22, 80, 443, and 16384:32768/udp (WebRTC Media)...`,
-    ]);
+    setInstallStepTitle("Connecting to VPS via SSH...");
+    setInstallLogs([`[${new Date().toLocaleTimeString()}] Establishing SSH connection to ${wizardData.ip}:${wizardData.sshPort}...`]);
 
-    // Progress Simulation Stages
-    setTimeout(() => {
-      setInstallProgress(35);
-      setInstallStepTitle("Step 2/5: Downloading & Installing BigBlueButton 3.0.39 Stable Packages...");
-      setInstallLogs((prev) => [
-        ...prev,
-        `[${new Date().toLocaleTimeString()}] Fetching official bbb-install-2.7.sh from ubuntu.bigbluebutton.org...`,
-        `[${new Date().toLocaleTimeString()}] Installing FreeSWITCH, Kurento/Mediasoup WebRTC, and BBB core services...`,
-      ]);
-    }, 1500);
+    const params = new URLSearchParams({
+      fqdn: wizardData.fqdn,
+      ip: wizardData.ip,
+      sshPort: String(wizardData.sshPort || 22),
+      sshUser: wizardData.sshUser || "root",
+      sshPassword: wizardData.sshPassword || "",
+      adminEmail: wizardData.adminEmail || "admin@nesthost.net",
+      nodeName: wizardData.name || `BBB Node (${wizardData.fqdn})`,
+    });
 
-    setTimeout(() => {
-      setInstallProgress(65);
-      setInstallStepTitle("Step 3/5: Provisioning Automated Let's Encrypt SSL Certificate...");
-      setInstallLogs((prev) => [
-        ...prev,
-        `[${new Date().toLocaleTimeString()}] Requesting Let's Encrypt SSL for ${wizardData.fqdn}...`,
-        `[${new Date().toLocaleTimeString()}] HTTPS verified: Certificate generated and Nginx reverse proxy configured.`,
-      ]);
-    }, 3200);
+    const eventSource = new EventSource(`/api/nodes/provision/install-stream?${params.toString()}`);
 
-    setTimeout(() => {
-      setInstallProgress(85);
-      setInstallStepTitle("Step 4/5: Deploying Aeorax Real-Time Monitoring & Telemetry Daemon...");
-      setInstallLogs((prev) => [
-        ...prev,
-        `[${new Date().toLocaleTimeString()}] Setting up /opt/aeorax-agent telemetry daemon...`,
-        `[${new Date().toLocaleTimeString()}] Enabled systemd service: aeorax-agent.service (running).`,
-        `[${new Date().toLocaleTimeString()}] Streaming real-time CPU, RAM, NVMe Disk, and BBB meetings to Master Panel...`,
-      ]);
-    }, 4800);
+    eventSource.addEventListener("log", (e) => {
+      try {
+        const text = JSON.parse(e.data);
+        setInstallLogs((prev) => [...prev, text]);
 
-    // Call real API in background
-    try {
-      const res = await fetch("/api/nodes/provision/install", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fqdn: wizardData.fqdn,
-          ip: wizardData.ip,
-          sshPort: wizardData.sshPort,
-          sshUser: wizardData.sshUser,
-          sshPassword: wizardData.sshPassword,
-          sshKey: wizardData.sshKey,
-          adminEmail: wizardData.adminEmail,
-          nodeName: wizardData.name,
-        }),
-      });
-      const data = await res.json();
+        // Dynamically increment real progress according to output logs
+        if (text.includes("Updating apt")) {
+          setInstallProgress(25);
+          setInstallStepTitle("Updating Ubuntu package mirrors & repositories...");
+        } else if (text.includes("Installing prerequisites")) {
+          setInstallProgress(40);
+          setInstallStepTitle("Installing locales, UFW firewall, and utilities...");
+        } else if (text.includes("Downloading official BigBlueButton")) {
+          setInstallProgress(55);
+          setInstallStepTitle("Downloading official BigBlueButton 3.0 packages...");
+        } else if (text.includes("Running bbb-install")) {
+          setInstallProgress(75);
+          setInstallStepTitle("Compiling FreeSWITCH, WebRTC media & requesting Let's Encrypt SSL...");
+        } else if (text.includes("Extracting BBB credentials")) {
+          setInstallProgress(90);
+          setInstallStepTitle("Configuring Scalelite secret & API endpoints...");
+        }
+      } catch {
+        setInstallLogs((prev) => [...prev, e.data]);
+      }
+    });
 
-      setTimeout(() => {
+    eventSource.addEventListener("status", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.progress) setInstallProgress(data.progress);
+        if (data.step) setInstallStepTitle(data.step);
+      } catch {}
+    });
+
+    eventSource.addEventListener("done", (e) => {
+      try {
+        const data = JSON.parse(e.data);
         setInstallProgress(100);
-        setInstallStepTitle("Step 5/5: Successfully Linked to Scalelite Load Balancer!");
-        setInstallLogs((prev) => [
-          ...prev,
-          `[${new Date().toLocaleTimeString()}] BigBlueButton Secret extracted successfully.`,
-          `[${new Date().toLocaleTimeString()}] Scalelite API Handshake verified: HTTP 200 OK.`,
-          `[${new Date().toLocaleTimeString()}] Installation 100% complete! Node is live and balancing meetings.`,
-        ]);
+        setInstallStepTitle("BigBlueButton Node Successfully Installed!");
         setInstallStatus("completed");
         setCompletedNodeResult(data);
         setWizardStep(4);
+        refreshNodes(); // Refresh real node list from DB
+      } catch {}
+      eventSource.close();
+    });
 
-        // Add newly provisioned node to fleet table
-        const newProvisionedNode: NodeData = {
-          id: `node-${Date.now()}`,
-          name: wizardData.name || `BBB Node (${wizardData.fqdn})`,
-          fqdn: wizardData.fqdn,
-          ip: wizardData.ip,
-          status: "READY",
-          cpu: 8.5,
-          steal: 0.1,
-          ramPercent: 19.2,
-          ramUsedGb: 3.1,
-          ramTotalGb: preflightData?.ram?.totalGb || 16,
-          diskPercent: 14.0,
-          diskUsedGb: 14,
-          diskTotalGb: preflightData?.disk?.totalGb || 100,
-          meetings: 0,
-          participants: 0,
-          webcams: 0,
-        };
-        setNodes((prev) => [...prev, newProvisionedNode]);
-      }, 6200);
-    } catch (err: any) {
-      setTimeout(() => {
-        setInstallProgress(100);
-        setInstallStatus("completed");
-        setWizardStep(4);
-      }, 6000);
-    }
+    eventSource.addEventListener("error", (e: any) => {
+      let errMsg = "Installation encountered an issue or connection interrupted.";
+      try {
+        if (e.data) {
+          const parsed = JSON.parse(e.data);
+          errMsg = parsed.message || parsed;
+        }
+      } catch {}
+      setInstallLogs((prev) => [...prev, `[ERROR] ${errMsg}`]);
+      setInstallStepTitle("Installation Failed");
+      setInstallStatus("error");
+      eventSource.close();
+    });
   };
 
   useEffect(() => {
@@ -443,80 +420,29 @@ export default function AeoraxDashboard() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const [nodes, setNodes] = useState<NodeData[]>([
-    {
-      id: "node-1",
-      name: "BBB Node 01 (Primary Pool)",
-      fqdn: "node1.aeoraxlive.com",
-      ip: "198.51.100.11",
-      status: "READY",
-      cpu: 48.2,
-      steal: 0.2,
-      ramPercent: 58.4,
-      ramUsedGb: 9.3,
-      ramTotalGb: 16,
-      diskPercent: 42.0,
-      diskUsedGb: 42,
-      diskTotalGb: 100,
-      meetings: 8,
-      participants: 240,
-      webcams: 42,
-    },
-    {
-      id: "node-2",
-      name: "BBB Node 02 (Primary Pool)",
-      fqdn: "node2.aeoraxlive.com",
-      ip: "198.51.100.12",
-      status: "READY",
-      cpu: 62.7,
-      steal: 0.4,
-      ramPercent: 64.1,
-      ramUsedGb: 10.3,
-      ramTotalGb: 16,
-      diskPercent: 54.5,
-      diskUsedGb: 54.5,
-      diskTotalGb: 100,
-      meetings: 11,
-      participants: 310,
-      webcams: 68,
-    },
-    {
-      id: "node-3",
-      name: "BBB Node 03 (Dedicated Stanford)",
-      fqdn: "node3.aeoraxlive.com",
-      ip: "198.51.100.13",
-      status: "READY",
-      cpu: 34.0,
-      steal: 0.1,
-      ramPercent: 42.0,
-      ramUsedGb: 13.4,
-      ramTotalGb: 32,
-      diskPercent: 28.0,
-      diskUsedGb: 56,
-      diskTotalGb: 200,
-      meetings: 5,
-      participants: 180,
-      webcams: 25,
-    },
-    {
-      id: "node-4",
-      name: "BBB Node 04 (Maintenance Drain)",
-      fqdn: "node4.aeoraxlive.com",
-      ip: "198.51.100.14",
-      status: "DRAIN",
-      cpu: 12.1,
-      steal: 0.1,
-      ramPercent: 28.0,
-      ramUsedGb: 4.5,
-      ramTotalGb: 16,
-      diskPercent: 35.0,
-      diskUsedGb: 35,
-      diskTotalGb: 100,
-      meetings: 1,
-      participants: 12,
-      webcams: 2,
-    },
-  ]);
+  const [nodes, setNodes] = useState<NodeData[]>([]);
+  const [isLoadingNodes, setIsLoadingNodes] = useState<boolean>(true);
+
+  // Fetch real nodes from database
+  const refreshNodes = async () => {
+    try {
+      setIsLoadingNodes(true);
+      const res = await fetch("/api/nodes");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.nodes)) {
+        setNodes(json.nodes);
+      }
+    } catch (e) {
+      console.error("Failed to load real nodes:", e);
+    } finally {
+      setIsLoadingNodes(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshNodes();
+  }, []);
+
 
   const colleges: CollegeData[] = [
     {
