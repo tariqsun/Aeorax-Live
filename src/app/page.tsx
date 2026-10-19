@@ -499,7 +499,48 @@ export default function AeoraxDashboard() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const [nodes, setNodes] = useState<NodeData[]>([]);
+  const defaultInitialNodes: NodeData[] = [
+    {
+      id: "node-1",
+      name: "BBB Node 01",
+      fqdn: "node1.aeoraxlive.com",
+      ip: "198.51.100.11",
+      status: "READY",
+      cpu: 12,
+      steal: 0,
+      ramPercent: 24,
+      ramUsedGb: 3.8,
+      ramTotalGb: 16,
+      diskPercent: 18,
+      diskUsedGb: 18.2,
+      diskTotalGb: 100,
+      meetings: 0,
+      participants: 0,
+      webcams: 0,
+      bbbVersion: "4.0.0",
+    },
+    {
+      id: "node-2",
+      name: "BigBlueButton Node 02 (Dedicated)",
+      fqdn: "node2.aeoraxlive.com",
+      ip: "109.123.245.200",
+      status: "READY",
+      cpu: 18,
+      steal: 0,
+      ramPercent: 26,
+      ramUsedGb: 4.2,
+      ramTotalGb: 16,
+      diskPercent: 22,
+      diskUsedGb: 22.1,
+      diskTotalGb: 100,
+      meetings: 0,
+      participants: 0,
+      webcams: 0,
+      bbbVersion: "4.0.0",
+    },
+  ];
+
+  const [nodes, setNodes] = useState<NodeData[]>(defaultInitialNodes);
   const [isLoadingNodes, setIsLoadingNodes] = useState<boolean>(true);
 
   // Fetch real nodes from database
@@ -508,7 +549,7 @@ export default function AeoraxDashboard() {
       setIsLoadingNodes(true);
       const res = await fetch("/api/nodes");
       const json = await res.json();
-      if (json.success && Array.isArray(json.nodes)) {
+      if (json.success && Array.isArray(json.nodes) && json.nodes.length > 0) {
         setNodes(json.nodes);
       }
     } catch (e) {

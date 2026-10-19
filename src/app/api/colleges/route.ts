@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, ensureDatabaseSchema } from "@/lib/prisma";
 import crypto from "node:crypto";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
+    await ensureDatabaseSchema();
+
     const dbColleges = await prisma.college.findMany({
       include: {
         rooms: {

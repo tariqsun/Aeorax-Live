@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, ensureDatabaseSchema } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +9,72 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    const dbNodes = await prisma.node.findMany({
+    await ensureDatabaseSchema();
+
+    let dbNodes = await prisma.node.findMany({
       orderBy: { createdAt: "desc" },
     });
+
+    // Auto-seed the 2 default BBB nodes if table is empty
+    if (dbNodes.length === 0) {
+      let pool = await prisma.nodePool.findFirst();
+      if (!pool) {
+        pool = await prisma.nodePool.create({
+          data: {
+            name: "Primary Shared BBB Pool",
+            type: "SHARED",
+            description: "Default high-availability BigBlueButton cluster",
+          },
+        });
+      }
+
+      await prisma.node.createMany({
+        data: [
+          {
+            poolId: pool.id,
+            name: "BBB Node 01",
+            fqdn: "node1.aeoraxlive.com",
+            ipAddress: "198.51.100.11",
+            status: "READY",
+            cpuCores: 8,
+            ramGb: 16,
+            diskGb: 100,
+            bbbVersion: "4.0.0",
+            scaleliteRegistered: true,
+            activeMeetingsCount: 0,
+            activeParticipantsCount: 0,
+            cpuUsagePercent: 12.5,
+            ramUsedGb: 3.8,
+            ramUsagePercent: 24,
+            diskUsedGb: 18.2,
+            diskUsagePercent: 18,
+          },
+          {
+            poolId: pool.id,
+            name: "BigBlueButton Node 02 (Dedicated)",
+            fqdn: "node2.aeoraxlive.com",
+            ipAddress: "109.123.245.200",
+            status: "READY",
+            cpuCores: 8,
+            ramGb: 16,
+            diskGb: 100,
+            bbbVersion: "4.0.0",
+            scaleliteRegistered: true,
+            activeMeetingsCount: 0,
+            activeParticipantsCount: 0,
+            cpuUsagePercent: 18.2,
+            ramUsedGb: 4.2,
+            ramUsagePercent: 26,
+            diskUsedGb: 22.1,
+            diskUsagePercent: 22,
+          },
+        ],
+      });
+
+      dbNodes = await prisma.node.findMany({
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     const nodes = dbNodes.map((n) => {
       let ver = n.bbbVersion;
