@@ -27,11 +27,11 @@ export async function GET() {
         status: n.status,
         cpu: n.cpuUsagePercent || 0,
         steal: 0,
-        ramPercent: 0,
-        ramUsedGb: 0,
+        ramPercent: Math.round(n.ramUsagePercent || 0),
+        ramUsedGb: Math.round((n.ramUsedGb || 0) * 10) / 10,
         ramTotalGb: n.ramGb || 16,
-        diskPercent: 0,
-        diskUsedGb: 0,
+        diskPercent: Math.round(n.diskUsagePercent || 0),
+        diskUsedGb: Math.round((n.diskUsedGb || 0) * 10) / 10,
         diskTotalGb: n.diskGb || 100,
         meetings: n.activeMeetingsCount || 0,
         participants: n.activeParticipantsCount || 0,
@@ -49,6 +49,64 @@ export async function GET() {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to load nodes" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/nodes
+ * Manually register a node in database.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { name, fqdn, ip, bbbVersion = "4.0.0", ramTotalGb = 16, diskTotalGb = 100, cpuCores = 8 } = body;
+
+    if (!fqdn || !ip) {
+      return NextResponse.json({ success: false, error: "FQDN and IP Address are required" }, { status: 400 });
+    }
+
+    let defaultPool = await prisma.nodePool.findFirst({
+      where: { type: "SHARED" },
+    });
+    if (!defaultPool) {
+      defaultPool = await prisma.nodePool.create({
+        data: {
+          name: "Global High-Availability Cluster",
+          type: "SHARED",
+        },
+      });
+    }
+
+    const node = await prisma.node.upsert({
+      where: { fqdn },
+      update: {
+        name: name || `BBB Node (${fqdn})`,
+        ipAddress: ip,
+        bbbVersion,
+        ramGb: Number(ramTotalGb) || 16,
+        diskGb: Number(diskTotalGb) || 100,
+        cpuCores: Number(cpuCores) || 8,
+        status: "READY",
+      },
+      create: {
+        poolId: defaultPool.id,
+        name: name || `BBB Node (${fqdn})`,
+        fqdn,
+        ipAddress: ip,
+        bbbVersion,
+        ramGb: Number(ramTotalGb) || 16,
+        diskGb: Number(diskTotalGb) || 100,
+        cpuCores: Number(cpuCores) || 8,
+        status: "READY",
+      },
+    });
+
+    return NextResponse.json({ success: true, message: "Node registered successfully", node });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error?.message || "Failed to register node" },
       { status: 500 }
     );
   }

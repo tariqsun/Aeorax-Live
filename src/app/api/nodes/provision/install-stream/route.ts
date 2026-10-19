@@ -94,6 +94,115 @@ echo "[Aeorax] Extracting BBB credentials..."
 bbb-conf --secret
 echo "[Aeorax] Detecting BBB version..."
 dpkg -s bbb-web 2>/dev/null | grep -i "^Version:" || echo "Version: 4.0.0"
+
+echo "[Aeorax] Deploying Aeorax Live Telemetry Agent & Heartbeat Daemon..."
+mkdir -p /opt/aeorax-agent
+cat << 'AGENTEOF' > /opt/aeorax-agent/agent.py
+#!/usr/bin/env python3
+import os, sys, time, json, urllib.request, subprocess
+
+CONFIG_FILE = "/opt/aeorax-agent/config.json"
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def send_heartbeat():
+    config = load_config()
+    panel_url = config.get("panel_url", "https://panel.nesthost.net")
+    fqdn = config.get("fqdn", "")
+    if not fqdn: return
+
+    # CPU
+    cpu_usage = 0.0
+    try:
+        with open("/proc/stat", "r") as f:
+            fields = [float(c) for c in f.readline().strip().split()[1:]]
+        idle1, tot1 = fields[3], sum(fields)
+        time.sleep(0.5)
+        with open("/proc/stat", "r") as f:
+            fields2 = [float(c) for c in f.readline().strip().split()[1:]]
+        idle2, tot2 = fields2[3], sum(fields2)
+        cpu_usage = round(100.0 * (1.0 - (idle2 - idle1) / (tot2 - tot1)), 1)
+    except Exception: pass
+
+    # RAM
+    ram_usage = 0.0
+    try:
+        mem = {}
+        with open("/proc/meminfo", "r") as f:
+            for l in f:
+                p = l.split(":")
+                if len(p) == 2: mem[p[0].strip()] = int(p[1].split()[0])
+        tot = mem.get("MemTotal", 1)
+        avail = mem.get("MemAvailable", 0)
+        ram_usage = round(((tot - avail) / tot) * 100.0, 1)
+    except Exception: pass
+
+    # Disk
+    disk_usage = 0.0
+    try:
+        s = os.statvfs("/")
+        tot_b = s.f_frsize * s.f_blocks
+        free_b = s.f_frsize * s.f_bavail
+        disk_usage = round(((tot_b - free_b) / tot_b) * 100.0, 1)
+    except Exception: pass
+
+    payload = json.dumps({
+        "fqdn": fqdn,
+        "cpu_pct": cpu_usage,
+        "ram_pct": ram_usage,
+        "disk_pct": disk_usage,
+        "active_meetings": 0,
+        "active_participants": 0
+    }).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(f"{panel_url}/api/nodes/heartbeat", data=payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=5) as res:
+            pass
+    except Exception: pass
+
+if __name__ == "__main__":
+    while True:
+        send_heartbeat()
+        time.sleep(10)
+AGENTEOF
+chmod +x /opt/aeorax-agent/agent.py
+
+cat << 'CONFEOF' > /opt/aeorax-agent/config.json
+{
+    "panel_url": "https://panel.nesthost.net",
+    "fqdn": "${fqdn}"
+}
+CONFEOF
+
+cat << 'SVCEOF' > /etc/systemd/system/aeorax-agent.service
+[Unit]
+Description=Aeorax Live Telemetry & Heartbeat Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /opt/aeorax-agent/agent.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+systemctl daemon-reload
+systemctl enable --now aeorax-agent || true
+
+echo "[Aeorax] Detecting Real Hardware Specs..."
+echo "---HW---"
+nproc
+free -m | awk '/Mem:/ {print $2, $3}'
+df -BG / | awk 'NR==2 {print $2, $3}'
+echo "---ENDHW---"
 `;
 
           conn.exec(remoteScript, (err, stream) => {
@@ -115,12 +224,38 @@ dpkg -s bbb-web 2>/dev/null | grep -i "^Version:" || echo "Version: 4.0.0"
                 const verMatch = fullOutput.match(/Version:\s*([0-9]+\.[0-9]+(\.[0-9]+)?)/i);
                 const detectedVersion = verMatch ? verMatch[1] : (fullOutput.includes("noble-400") ? "4.0.0" : "3.0.39");
 
+                // Parse Real Hardware Specs
+                const hwMatch = fullOutput.match(/---HW---([\s\S]*?)---ENDHW---/);
+                let cpuCores = 8;
+                let ramTotalGb = 16;
+                let ramUsedGb = 0.0;
+                let diskTotalGb = 100;
+                let diskUsedGb = 0.0;
+
+                if (hwMatch) {
+                  const hwLines = hwMatch[1].trim().split("\n");
+                  if (hwLines[0]) cpuCores = parseInt(hwLines[0]) || 8;
+                  if (hwLines[1]) {
+                    const [totM, usedM] = hwLines[1].trim().split(/\s+/).map(Number);
+                    if (totM) ramTotalGb = Math.round(totM / 1024) || 16;
+                    if (usedM) ramUsedGb = Math.round((usedM / 1024) * 10) / 10;
+                  }
+                  if (hwLines[2]) {
+                    const [totG, usedG] = hwLines[2].trim().replace(/G/g, "").split(/\s+/).map(Number);
+                    if (totG) diskTotalGb = totG || 100;
+                    if (usedG) diskUsedGb = usedG || 0.0;
+                  }
+                }
+                const ramPct = ramTotalGb > 0 ? Math.round((ramUsedGb / ramTotalGb) * 100) : 0;
+                const diskPct = diskTotalGb > 0 ? Math.round((diskUsedGb / diskTotalGb) * 100) : 0;
+
                 const bbbSecret = secretMatch ? secretMatch[1] : null;
                 const bbbUrl = urlMatch ? urlMatch[1] : `https://${fqdn}/bigbluebutton/api`;
 
                 if (code === 0 && bbbSecret) {
                   sendEvent("log", `[${new Date().toLocaleTimeString()}] Verified BigBlueButton secret: ${bbbSecret.slice(0, 6)}...`);
                   sendEvent("log", `[${new Date().toLocaleTimeString()}] Detected BigBlueButton version: v${detectedVersion}`);
+                  sendEvent("log", `[${new Date().toLocaleTimeString()}] Hardware: ${cpuCores} Cores | ${ramTotalGb}GB RAM (${ramUsedGb}GB used) | ${diskTotalGb}GB NVMe (${diskUsedGb}GB used)`);
 
                   try {
                     // Ensure pool exists
@@ -137,7 +272,7 @@ dpkg -s bbb-web 2>/dev/null | grep -i "^Version:" || echo "Version: 4.0.0"
                       });
                     }
 
-                    // Save node to DB with real detected BBB version
+                    // Save node to DB with real detected BBB version and REAL hardware stats
                     const node = await prisma.node.upsert({
                       where: { fqdn },
                       update: {
@@ -145,6 +280,13 @@ dpkg -s bbb-web 2>/dev/null | grep -i "^Version:" || echo "Version: 4.0.0"
                         name: nodeName,
                         status: "READY",
                         bbbVersion: detectedVersion,
+                        cpuCores,
+                        ramGb: ramTotalGb,
+                        diskGb: diskTotalGb,
+                        ramUsedGb,
+                        diskUsedGb,
+                        ramUsagePercent: ramPct,
+                        diskUsagePercent: diskPct,
                         scaleliteRegistered: true,
                         lastHeartbeatAt: new Date(),
                       },
@@ -155,6 +297,13 @@ dpkg -s bbb-web 2>/dev/null | grep -i "^Version:" || echo "Version: 4.0.0"
                         ipAddress: ip,
                         status: "READY",
                         bbbVersion: detectedVersion,
+                        cpuCores,
+                        ramGb: ramTotalGb,
+                        diskGb: diskTotalGb,
+                        ramUsedGb,
+                        diskUsedGb,
+                        ramUsagePercent: ramPct,
+                        diskUsagePercent: diskPct,
                         scaleliteRegistered: true,
                         lastHeartbeatAt: new Date(),
                       },

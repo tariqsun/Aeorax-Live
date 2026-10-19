@@ -60,6 +60,7 @@ model College {
   slug                       String         @unique
   contactEmail               String
   contactPhone               String?
+  plan                       String         @default("Standard College (8 Rooms)")
   status                     CollegeStatus  @default(ACTIVE)
   apiKey                     String         @unique @default(cuid())
   apiSecret                  String
@@ -154,6 +155,10 @@ model Node {
   cpuCores               Int          @default(8)
   ramGb                  Int          @default(16)
   diskGb                 Int          @default(100)
+  ramUsedGb              Float        @default(0.0)
+  diskUsedGb             Float        @default(0.0)
+  ramUsagePercent        Float        @default(0.0)
+  diskUsagePercent       Float        @default(0.0)
   bbbVersion             String       @default("4.0.0")
   scaleliteRegistered    Boolean      @default(false)
   activeMeetingsCount    Int          @default(0)

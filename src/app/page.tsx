@@ -35,6 +35,8 @@ import {
   AlertTriangle,
   Terminal,
   Palette,
+  Trash2,
+  Building,
 } from "lucide-react";
 
 interface NodeData {
@@ -61,6 +63,8 @@ interface CollegeData {
   id: string;
   name: string;
   slug: string;
+  contactEmail?: string;
+  contactPhone?: string;
   plan: string;
   activeRooms: number;
   maxRooms: number;
@@ -68,21 +72,26 @@ interface CollegeData {
   maxStudents: number;
   storageGb: number;
   storageLimitGb: number;
-  status: "ACTIVE" | "TRIAL";
+  status: "ACTIVE" | "TRIAL" | "SUSPENDED";
   apiKey: string;
   apiSecret: string;
-  accentColor: "blue" | "purple" | "emerald" | "amber";
+  accentColor?: "blue" | "purple" | "emerald" | "amber";
+  createdAt?: string;
 }
 
 interface RoomData {
   id: string;
+  collegeId?: string;
+  collegeSlug?: string;
   name: string;
   slug: string;
   teacher: string;
   studentsCount: number;
-  status: "RUNNING" | "IDLE";
+  status: "RUNNING" | "IDLE" | "ENDED";
   recordEnabled: boolean;
   durationMinutes?: number;
+  maxParticipants?: number;
+  createdAt?: string;
 }
 
 export default function AeoraxDashboard() {
@@ -236,35 +245,41 @@ export default function AeoraxDashboard() {
     setTimeout(() => setIsCommandCopied(false), 3000);
   };
 
-  const handleAddManualNode = (e: React.FormEvent) => {
+  const handleAddManualNode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nodeFormData.fqdn || !nodeFormData.ip) return;
 
-    const newNode: NodeData = {
-      id: `node-${Date.now()}`,
-      name: nodeFormData.name || `BBB Node (${nodeFormData.fqdn})`,
-      fqdn: nodeFormData.fqdn,
-      ip: nodeFormData.ip,
-      status: "READY",
-      cpu: 12.5,
-      steal: 0.1,
-      ramPercent: 24.0,
-      ramUsedGb: Math.round(nodeFormData.ramTotalGb * 0.24 * 10) / 10,
-      ramTotalGb: Number(nodeFormData.ramTotalGb) || 16,
-      diskPercent: 18.0,
-      diskUsedGb: Math.round(nodeFormData.diskTotalGb * 0.18),
-      diskTotalGb: Number(nodeFormData.diskTotalGb) || 100,
-      meetings: 0,
-      participants: 0,
-      webcams: 0,
-    };
-
-    setNodes((prev) => [...prev, newNode]);
-    setIsAddNodeModalOpen(false);
-    setNodeFormData({ name: "", fqdn: "", ip: "", secret: "", ramTotalGb: 16, diskTotalGb: 100, cpuCores: 8 });
-    setManualNodeTestStatus("idle");
-    setNodeAddSuccessMsg(`Node "${newNode.name}" registered successfully with Manual DNS and linked to Scalelite!`);
-    setTimeout(() => setNodeAddSuccessMsg(null), 5000);
+    try {
+      setManualNodeTestStatus("testing");
+      const res = await fetch("/api/nodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: nodeFormData.name || `BBB Node (${nodeFormData.fqdn})`,
+          fqdn: nodeFormData.fqdn,
+          ip: nodeFormData.ip,
+          bbbVersion: "4.0.0",
+          ramTotalGb: Number(nodeFormData.ramTotalGb) || 16,
+          diskTotalGb: Number(nodeFormData.diskTotalGb) || 100,
+          cpuCores: Number(nodeFormData.cpuCores) || 8,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || "Failed to register node");
+        return;
+      }
+      setIsAddNodeModalOpen(false);
+      setNodeFormData({ name: "", fqdn: "", ip: "", secret: "", ramTotalGb: 16, diskTotalGb: 100, cpuCores: 8 });
+      setManualNodeTestStatus("idle");
+      setNodeAddSuccessMsg(`Node "${data.node.name}" registered successfully with Manual DNS and saved to database!`);
+      setTimeout(() => setNodeAddSuccessMsg(null), 5000);
+      await refreshNodes();
+    } catch (err: any) {
+      alert(err.message || "Failed to register node");
+    } finally {
+      setManualNodeTestStatus("idle");
+    }
   };
 
   // Automated Node Provisioning Wizard State
@@ -611,116 +626,209 @@ export default function AeoraxDashboard() {
   };
 
 
-  const colleges: CollegeData[] = [
-    {
-      id: "col-1",
-      name: "Oxford International College",
-      slug: "oxford-intl",
-      plan: "Enterprise Tier (15 Rooms)",
-      activeRooms: 7,
-      maxRooms: 15,
-      activeStudents: 285,
-      maxStudents: 600,
-      storageGb: 48,
-      storageLimitGb: 200,
-      status: "ACTIVE",
-      apiKey: "key_oxford_live_9a8b7c",
-      apiSecret: "sec_oxford_bbb_secret_998877",
-      accentColor: "blue",
-    },
-    {
-      id: "col-2",
-      name: "Beaconhouse National Institute",
-      slug: "beaconhouse",
-      plan: "Standard College (8 Rooms)",
-      activeRooms: 6,
-      maxRooms: 8,
-      activeStudents: 220,
-      maxStudents: 300,
-      storageGb: 32,
-      storageLimitGb: 100,
-      status: "ACTIVE",
-      apiKey: "key_beaconhouse_live_112233",
-      apiSecret: "sec_beaconhouse_bbb_secret_445566",
-      accentColor: "purple",
-    },
-    {
-      id: "col-3",
-      name: "Cambridge Academy of Sciences",
-      slug: "cambridge-sci",
-      plan: "Pro Growth (10 Rooms)",
-      activeRooms: 9,
-      maxRooms: 10,
-      activeStudents: 215,
-      maxStudents: 400,
-      storageGb: 64,
-      storageLimitGb: 150,
-      status: "ACTIVE",
-      apiKey: "key_cambridge_live_778899",
-      apiSecret: "sec_cambridge_bbb_secret_112233",
-      accentColor: "emerald",
-    },
-    {
-      id: "col-4",
-      name: "Lahore Grammar Distance Learning",
-      slug: "lg-online",
-      plan: "Starter Trial (3 Rooms)",
-      activeRooms: 3,
-      maxRooms: 3,
-      activeStudents: 22,
-      maxStudents: 100,
-      storageGb: 8,
-      storageLimitGb: 25,
-      status: "TRIAL",
-      apiKey: "key_lg_live_445566",
-      apiSecret: "sec_lg_bbb_secret_889900",
-      accentColor: "amber",
-    },
-  ];
+  // Real College Tenants State (Loaded from PostgreSQL via /api/colleges)
+  const [colleges, setColleges] = useState<CollegeData[]>([]);
+  const [isLoadingColleges, setIsLoadingColleges] = useState<boolean>(true);
+  const [isAddCollegeModalOpen, setIsAddCollegeModalOpen] = useState<boolean>(false);
+  const [isCreatingCollege, setIsCreatingCollege] = useState<boolean>(false);
+  const [collegeError, setCollegeError] = useState<string | null>(null);
+  const [collegeFormData, setCollegeFormData] = useState({
+    name: "",
+    slug: "",
+    contactEmail: "",
+    contactPhone: "",
+    plan: "Standard College (8 Rooms)",
+    maxConcurrentRooms: 8,
+    maxTotalParticipants: 300,
+    storageLimitGb: 100,
+  });
 
-  // Client's Virtual Classrooms
-  const [clientRooms, setClientRooms] = useState<RoomData[]>([
-    {
-      id: "room-1",
-      name: "Advanced Artificial Intelligence & Neural Networks",
-      slug: "cs401-ai",
-      teacher: "Prof. Sarah Jenkins",
-      studentsCount: 48,
-      status: "RUNNING",
-      recordEnabled: true,
-      durationMinutes: 42,
-    },
-    {
-      id: "room-2",
-      name: "Organic Chemistry Laboratory Lecture",
-      slug: "chem201-lab",
-      teacher: "Dr. Alistair Finch",
-      studentsCount: 35,
-      status: "RUNNING",
-      recordEnabled: true,
-      durationMinutes: 18,
-    },
-    {
-      id: "room-3",
-      name: "Microeconomics & Global Trade Policies",
-      slug: "econ302",
-      teacher: "Dr. Robert Vance",
-      studentsCount: 0,
-      status: "IDLE",
-      recordEnabled: true,
-    },
-    {
-      id: "room-4",
-      name: "Data Structures & Modern Algorithms",
-      slug: "cs201-dsa",
-      teacher: "Prof. Sarah Jenkins",
-      studentsCount: 0,
-      status: "IDLE",
-      recordEnabled: true,
-    },
-  ]);
+  const fetchColleges = async () => {
+    try {
+      setIsLoadingColleges(true);
+      const res = await fetch("/api/colleges");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.colleges)) {
+        setColleges(json.colleges);
+        if (json.colleges.length > 0) {
+          setSelectedCollegeSlug((prev) => {
+            if (!prev || !json.colleges.some((c: any) => c.slug === prev)) {
+              return json.colleges[0].slug;
+            }
+            return prev;
+          });
+          setSelectedMoodleCollegeSlug((prev) => {
+            if (!prev || !json.colleges.some((c: any) => c.slug === prev)) {
+              return json.colleges[0].slug;
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load real colleges:", e);
+    } finally {
+      setIsLoadingColleges(false);
+    }
+  };
 
-  const activeCollege = colleges.find((c) => c.slug === selectedCollegeSlug) || colleges[0];
+  const handleAddCollege = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!collegeFormData.name || !collegeFormData.slug || !collegeFormData.contactEmail) return;
+    try {
+      setIsCreatingCollege(true);
+      setCollegeError(null);
+      const res = await fetch("/api/colleges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(collegeFormData),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setCollegeError(data.error || "Failed to create college client");
+        return;
+      }
+      setIsAddCollegeModalOpen(false);
+      setCollegeFormData({
+        name: "",
+        slug: "",
+        contactEmail: "",
+        contactPhone: "",
+        plan: "Standard College (8 Rooms)",
+        maxConcurrentRooms: 8,
+        maxTotalParticipants: 300,
+        storageLimitGb: 100,
+      });
+      await fetchColleges();
+      if (data.college?.slug) {
+        setSelectedCollegeSlug(data.college.slug);
+        setSelectedMoodleCollegeSlug(data.college.slug);
+      }
+    } catch (err: any) {
+      setCollegeError(err.message || "Network error occurred");
+    } finally {
+      setIsCreatingCollege(false);
+    }
+  };
+
+  const handleDeleteCollege = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete client institution "${name}"? All associated classrooms, sessions, and records will be deleted.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/colleges?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        await fetchColleges();
+      } else {
+        alert(data.error || "Failed to delete college");
+      }
+    } catch (e: any) {
+      alert(e.message || "Network error");
+    }
+  };
+
+  // Real Virtual Classrooms State (Loaded from PostgreSQL via /api/rooms)
+  const [clientRooms, setClientRooms] = useState<RoomData[]>([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState<boolean>(false);
+  const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState<boolean>(false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState<boolean>(false);
+  const [roomError, setRoomError] = useState<string | null>(null);
+  const [roomFormData, setRoomFormData] = useState({
+    name: "",
+    slug: "",
+    teacher: "",
+    maxParticipants: 100,
+    recordEnabled: true,
+  });
+
+  const fetchRooms = async (targetSlug?: string) => {
+    const slug = targetSlug || selectedCollegeSlug;
+    if (!slug) {
+      setClientRooms([]);
+      return;
+    }
+    try {
+      setIsLoadingRooms(true);
+      const res = await fetch(`/api/rooms?collegeSlug=${encodeURIComponent(slug)}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.rooms)) {
+        setClientRooms(json.rooms);
+      } else {
+        setClientRooms([]);
+      }
+    } catch (e) {
+      console.error("Failed to load rooms:", e);
+    } finally {
+      setIsLoadingRooms(false);
+    }
+  };
+
+  const handleAddRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeCollege || !roomFormData.name || !roomFormData.slug) return;
+    try {
+      setIsCreatingRoom(true);
+      setRoomError(null);
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collegeSlug: activeCollege.slug,
+          name: roomFormData.name,
+          slug: roomFormData.slug,
+          teacher: roomFormData.teacher || "Instructor",
+          maxParticipants: Number(roomFormData.maxParticipants) || 100,
+          recordEnabled: roomFormData.recordEnabled,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setRoomError(data.error || "Failed to create virtual classroom");
+        return;
+      }
+      setIsAddRoomModalOpen(false);
+      setRoomFormData({
+        name: "",
+        slug: "",
+        teacher: "",
+        maxParticipants: 100,
+        recordEnabled: true,
+      });
+      await fetchRooms(activeCollege.slug);
+      await fetchColleges();
+    } catch (err: any) {
+      setRoomError(err.message || "Failed to create room");
+    } finally {
+      setIsCreatingRoom(false);
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: string, roomName: string) => {
+    if (!confirm(`Are you sure you want to delete classroom "${roomName}"?`)) return;
+    try {
+      const res = await fetch(`/api/rooms?id=${roomId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success && activeCollege) {
+        await fetchRooms(activeCollege.slug);
+        await fetchColleges();
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to delete room");
+    }
+  };
+
+  useEffect(() => {
+    fetchColleges();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCollegeSlug) {
+      fetchRooms(selectedCollegeSlug);
+    }
+  }, [selectedCollegeSlug]);
+
+  const activeCollege = colleges.find((c) => c.slug === selectedCollegeSlug) || colleges[0] || null;
 
   const totalRooms = nodes.reduce((acc, n) => acc + n.meetings, 0);
   const totalStudents = nodes.reduce((acc, n) => acc + n.participants, 0);
@@ -769,14 +877,16 @@ export default function AeoraxDashboard() {
                 </span>
               ) : (
                 <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/10 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-500/20 font-bold tracking-wide">
-                  Client Portal: {activeCollege.name}
+                  Client Portal: {activeCollege?.name || "No Client Selected"}
                 </span>
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               {currentView === "SUPER_ADMIN"
                 ? "Fleet Orchestration & Multi-Tenant BigBlueButton Management"
-                : `Dedicated Tenant Portal • Plan: ${activeCollege.plan}`}
+                : activeCollege
+                ? `Dedicated Tenant Portal • Plan: ${activeCollege.plan}`
+                : "Dedicated Tenant Portal"}
             </p>
           </div>
         </div>
@@ -841,309 +951,405 @@ export default function AeoraxDashboard() {
       {/* ========================================================================= */}
       {currentView === "CLIENT_PORTAL" ? (
         <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
-          {/* Client Header Welcome Banner */}
-          <div className="glass-card p-6 rounded-3xl relative overflow-hidden bg-gradient-to-r from-purple-50 via-indigo-50/50 to-white dark:from-purple-950/30 dark:via-slate-900/60 dark:to-indigo-950/30 border border-purple-200/90 dark:border-purple-800/40 shadow-xs">
-            <div className="flex items-start justify-between flex-wrap gap-4">
-              <div className="flex items-start space-x-4">
-                <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25">
-                  <GraduationCap className="w-7 h-7" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2.5">
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white">{activeCollege.name}</h2>
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-300 font-bold">
-                      {activeCollege.status}
-                    </span>
+          {!activeCollege ? (
+            <div className="glass-card p-12 text-center rounded-3xl max-w-xl mx-auto space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center mx-auto shadow-md">
+                <GraduationCap className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">No Client Institutions Registered</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                To access the Client Portal, switch to Super Admin and register a client college tenant with custom room, student, and storage quotas.
+              </p>
+              <button
+                onClick={() => {
+                  setCurrentView("SUPER_ADMIN");
+                  setAdminTab("colleges");
+                  setIsAddCollegeModalOpen(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-purple-500/20 transition transform hover:scale-105"
+              >
+                + Register First Client College
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Client Header Welcome Banner */}
+              <div className="glass-card p-6 rounded-3xl relative overflow-hidden bg-gradient-to-r from-purple-50 via-indigo-50/50 to-white dark:from-purple-950/30 dark:via-slate-900/60 dark:to-indigo-950/30 border border-purple-200/90 dark:border-purple-800/40 shadow-xs">
+                <div className="flex items-start justify-between flex-wrap gap-4">
+                  <div className="flex items-start space-x-4">
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25">
+                      <GraduationCap className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2.5">
+                        <h2 className="text-xl font-black text-slate-900 dark:text-white">{activeCollege.name}</h2>
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-300 font-bold">
+                          {activeCollege.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                        Tenant ID: <span className="font-mono text-purple-600 dark:text-purple-400 font-bold">{activeCollege.slug}</span> • Connected to Aeorax Managed BBB Cluster
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                    Tenant ID: <span className="font-mono text-purple-600 dark:text-purple-400 font-bold">{activeCollege.slug}</span> • Connected to Aeorax Managed BBB Cluster
-                  </p>
+
+                  {/* Quick Actions */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setRoomError(null);
+                        setIsAddRoomModalOpen(true);
+                      }}
+                      className="flex items-center space-x-1.5 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-purple-500/20 transform hover:scale-105"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Create Virtual Room</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => launchMeeting("room-3")}
-                  className="flex items-center space-x-1.5 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-purple-500/20 transform hover:scale-105"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Create Virtual Room</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Client Quota & Usage Highlights — Clickable Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Concurrent Rooms -> Switches to Rooms tab */}
-            <div
-              onClick={() => setClientTab("rooms")}
-              className={`glass-card glass-hover card-theme-purple p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
-                clientTab === "rooms" ? "ring-2 ring-purple-500 shadow-md" : ""
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider">
-                <span>Concurrent Rooms</span>
-                <div className="flex items-center space-x-1">
-                  <ArrowUpRight className="w-3.5 h-3.5 text-purple-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                  <Video className="w-4 h-4 text-purple-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
-                {activeCollege.activeRooms} <span className="text-sm font-bold text-slate-500">/ {activeCollege.maxRooms}</span>
-              </div>
-              <div className="h-2 w-full bg-purple-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
+              {/* Client Quota & Usage Highlights — Clickable Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: Concurrent Rooms -> Switches to Rooms tab */}
                 <div
-                  className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full"
-                  style={{ width: `${(activeCollege.activeRooms / activeCollege.maxRooms) * 100}%` }}
-                />
-              </div>
-              <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-2.5 flex items-center space-x-1">
-                <span>Manage Classrooms</span>
-                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-
-            {/* Card 2: Concurrent Students -> Switches to Rooms tab */}
-            <div
-              onClick={() => setClientTab("rooms")}
-              className={`glass-card glass-hover card-theme-blue p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
-                clientTab === "rooms" ? "ring-2 ring-blue-500 shadow-md" : ""
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider">
-                <span>Active Students</span>
-                <div className="flex items-center space-x-1">
-                  <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                  <Users className="w-4 h-4 text-blue-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
-                {activeCollege.activeStudents} <span className="text-sm font-bold text-slate-500">/ {activeCollege.maxStudents}</span>
-              </div>
-              <div className="h-2 w-full bg-blue-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full"
-                  style={{ width: `${(activeCollege.activeStudents / activeCollege.maxStudents) * 100}%` }}
-                />
-              </div>
-              <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-2.5 flex items-center space-x-1">
-                <span>View Live Sessions</span>
-                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-
-            {/* Card 3: Storage Used -> Switches to Recordings tab */}
-            <div
-              onClick={() => setClientTab("recordings")}
-              className={`glass-card glass-hover card-theme-emerald p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
-                clientTab === "recordings" ? "ring-2 ring-emerald-500 shadow-md" : ""
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
-                <span>Cloud Storage (R2)</span>
-                <div className="flex items-center space-x-1">
-                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                  <HardDrive className="w-4 h-4 text-emerald-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
-                {activeCollege.storageGb} <span className="text-sm font-bold text-slate-500">/ {activeCollege.storageLimitGb} GB</span>
-              </div>
-              <div className="h-2 w-full bg-emerald-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
-                <div
-                  className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full"
-                  style={{ width: `${(activeCollege.storageGb / activeCollege.storageLimitGb) * 100}%` }}
-                />
-              </div>
-              <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2.5 flex items-center space-x-1">
-                <span>Open Recordings</span>
-                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-
-            {/* Card 4: Plan Status -> Switches to Teachers / Faculty tab */}
-            <div
-              onClick={() => setClientTab("teachers")}
-              className={`glass-card glass-hover card-theme-amber p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
-                clientTab === "teachers" ? "ring-2 ring-amber-500 shadow-md" : ""
-              }`}
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
-                <span>Subscription Plan</span>
-                <div className="flex items-center space-x-1">
-                  <ArrowUpRight className="w-3.5 h-3.5 text-amber-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                </div>
-              </div>
-              <div className="text-xl font-black mt-2 text-slate-900 dark:text-white truncate">
-                {activeCollege.plan.split("(")[0]}
-              </div>
-              <div className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-3">
-                Auto-Renew: Active • SLA 99.9% Uptime
-              </div>
-              <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-2.5 flex items-center space-x-1">
-                <span>Authorized Faculty</span>
-                <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          </div>
-
-          {/* Client Navigation Tabs (No technical Moodle options for college) */}
-          <div className="flex space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-            {[
-              { id: "rooms", label: "Virtual Classrooms", icon: Video },
-              { id: "teachers", label: "Teachers & Staff", icon: Users },
-              { id: "recordings", label: "Class Recordings", icon: HardDrive },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = clientTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setClientTab(tab.id as any)}
-                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-                    isActive
-                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                  onClick={() => setClientTab("rooms")}
+                  className={`glass-card glass-hover card-theme-purple p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                    clientTab === "rooms" ? "ring-2 ring-purple-500 shadow-md" : ""
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* CLIENT TAB 1: VIRTUAL CLASSROOMS */}
-          {clientTab === "rooms" && (
-            <div className="space-y-4">
-              <div className="glass-card rounded-3xl overflow-hidden shadow-xs">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-100/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 uppercase font-black tracking-wider">
-                    <tr>
-                      <th className="py-4 px-5">Classroom Name</th>
-                      <th className="py-4 px-5">Teacher / Moderator</th>
-                      <th className="py-4 px-5">Status</th>
-                      <th className="py-4 px-5">Live Students</th>
-                      <th className="py-4 px-5">Auto-Record</th>
-                      <th className="py-4 px-5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                    {clientRooms.map((room) => (
-                      <tr key={room.id} className="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition">
-                        <td className="py-4 px-5">
-                          <div className="font-extrabold text-slate-900 dark:text-white">{room.name}</div>
-                          <div className="text-xs text-slate-500 font-mono mt-0.5">/{room.slug}</div>
-                        </td>
-                        <td className="py-4 px-5 font-medium">{room.teacher}</td>
-                        <td className="py-4 px-5">
-                          <span
-                            className={`text-xs px-2.5 py-1 rounded-full font-black ${
-                              room.status === "RUNNING"
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-300 animate-pulse"
-                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200"
-                            }`}
-                          >
-                            {room.status === "RUNNING" ? `LIVE (${room.durationMinutes}m)` : "IDLE"}
-                          </span>
-                        </td>
-                        <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
-                          {room.studentsCount > 0 ? `${room.studentsCount} Students` : "—"}
-                        </td>
-                        <td className="py-4 px-5">
-                          <span className="text-xs px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-bold">
-                            Enabled
-                          </span>
-                        </td>
-                        <td className="py-4 px-5 text-right space-x-2">
-                          <button
-                            onClick={() => launchMeeting(room.id)}
-                            className={`text-xs px-3.5 py-1.5 rounded-xl border font-bold transition-all duration-200 ${
-                              room.status === "RUNNING"
-                                ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                                : "bg-emerald-600 text-white border-transparent hover:bg-emerald-700 shadow-xs"
-                            }`}
-                          >
-                            {room.status === "RUNNING" ? "End Class" : "Start Class (BBB)"}
-                          </button>
-                          <button
-                            onClick={() => copyToClipboard(`https://panel.aeoraxlive.com/join/${activeCollege.slug}/${room.slug}`)}
-                            className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 transition"
-                          >
-                            Copy Student Link
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* CLIENT TAB 3: RECORDINGS */}
-          {clientTab === "recordings" && (
-            <div className="glass-card p-6 rounded-3xl space-y-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Classroom Recordings Library</h3>
-              <p className="text-xs text-slate-500 font-medium">All sessions are securely archived to Cloudflare R2 object storage.</p>
-              <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                {[
-                  { title: "AI Week 3 — Convolutional Networks", date: "Oct 17, 2026", duration: "54 mins", size: "380 MB" },
-                  { title: "Organic Chemistry — Benzene Rings Synthesis", date: "Oct 16, 2026", duration: "48 mins", size: "310 MB" },
-                  { title: "Macroeconomics — Inflation Forecasting", date: "Oct 15, 2026", duration: "62 mins", size: "420 MB" },
-                ].map((rec, i) => (
-                  <div key={i} className="py-3.5 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-slate-900 dark:text-white text-sm">{rec.title}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{rec.date} • {rec.duration} • {rec.size}</div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button className="px-3 py-1.5 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-xs font-bold rounded-xl hover:bg-purple-100 transition">
-                        Watch Playback
-                      </button>
-                      <button className="p-1.5 text-slate-400 hover:text-slate-600 transition">
-                        <Download className="w-4 h-4" />
-                      </button>
+                  <div className="flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider">
+                    <span>Concurrent Rooms</span>
+                    <div className="flex items-center space-x-1">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-purple-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                      <Video className="w-4 h-4 text-purple-600" />
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* CLIENT TAB 4: TEACHERS */}
-          {clientTab === "teachers" && (
-            <div className="glass-card p-6 rounded-3xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Authorized College Faculty</h3>
-                  <p className="text-xs text-slate-500 font-medium">Teachers who can launch and moderate classrooms</p>
+                  <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
+                    {clientRooms.length} <span className="text-sm font-bold text-slate-500">/ {activeCollege.maxRooms}</span>
+                  </div>
+                  <div className="h-2 w-full bg-purple-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full"
+                      style={{ width: `${Math.min(100, (clientRooms.length / (activeCollege.maxRooms || 1)) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-2.5 flex items-center space-x-1">
+                    <span>Manage Classrooms</span>
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  </div>
                 </div>
-                <button className="px-3.5 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition">
-                  Invite Teacher
-                </button>
-              </div>
-              <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                {[
-                  { name: "Prof. Sarah Jenkins", email: "jenkins@oxford-intl.edu", rooms: "CS401-AI, CS201-DSA" },
-                  { name: "Dr. Alistair Finch", email: "finch@oxford-intl.edu", rooms: "CHEM201-LAB" },
-                  { name: "Dr. Robert Vance", email: "vance@oxford-intl.edu", rooms: "ECON302" },
-                ].map((t, i) => (
-                  <div key={i} className="py-3.5 flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{t.email} • Assigned: {t.rooms}</div>
+
+                {/* Card 2: Concurrent Students -> Switches to Rooms tab */}
+                <div
+                  onClick={() => setClientTab("rooms")}
+                  className={`glass-card glass-hover card-theme-blue p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                    clientTab === "rooms" ? "ring-2 ring-blue-500 shadow-md" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wider">
+                    <span>Active Students</span>
+                    <div className="flex items-center space-x-1">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                      <Users className="w-4 h-4 text-blue-600" />
                     </div>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Active
-                    </span>
                   </div>
-                ))}
+                  <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
+                    {clientRooms.reduce((acc, r) => acc + (r.studentsCount || 0), 0)} <span className="text-sm font-bold text-slate-500">/ {activeCollege.maxStudents}</span>
+                  </div>
+                  <div className="h-2 w-full bg-blue-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full"
+                      style={{ width: `${Math.min(100, (clientRooms.reduce((acc, r) => acc + (r.studentsCount || 0), 0) / (activeCollege.maxStudents || 1)) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 mt-2.5 flex items-center space-x-1">
+                    <span>View Live Sessions</span>
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                {/* Card 3: Storage Used -> Switches to Recordings tab */}
+                <div
+                  onClick={() => setClientTab("recordings")}
+                  className={`glass-card glass-hover card-theme-emerald p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                    clientTab === "recordings" ? "ring-2 ring-emerald-500 shadow-md" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
+                    <span>Cloud Storage (R2)</span>
+                    <div className="flex items-center space-x-1">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                      <HardDrive className="w-4 h-4 text-emerald-600" />
+                    </div>
+                  </div>
+                  <div className="text-3xl font-black mt-2 text-slate-900 dark:text-white">
+                    {activeCollege.storageGb} <span className="text-sm font-bold text-slate-500">/ {activeCollege.storageLimitGb} GB</span>
+                  </div>
+                  <div className="h-2 w-full bg-emerald-100 dark:bg-slate-800 rounded-full overflow-hidden mt-3">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full"
+                      style={{ width: `${Math.min(100, (activeCollege.storageGb / (activeCollege.storageLimitGb || 1)) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-2.5 flex items-center space-x-1">
+                    <span>Open Recordings</span>
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                {/* Card 4: Plan Status -> Switches to Teachers / Faculty tab */}
+                <div
+                  onClick={() => setClientTab("teachers")}
+                  className={`glass-card glass-hover card-theme-amber p-5 rounded-2xl cursor-pointer group transition-all duration-200 transform hover:scale-102 hover:shadow-lg active:scale-98 ${
+                    clientTab === "teachers" ? "ring-2 ring-amber-500 shadow-md" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider">
+                    <span>Subscription Plan</span>
+                    <div className="flex items-center space-x-1">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-amber-600 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                    </div>
+                  </div>
+                  <div className="text-xl font-black mt-2 text-slate-900 dark:text-white truncate">
+                    {activeCollege.plan.split("(")[0]}
+                  </div>
+                  <div className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-3">
+                    Auto-Renew: Active • SLA 99.9% Uptime
+                  </div>
+                  <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-2.5 flex items-center space-x-1">
+                    <span>Authorized Faculty</span>
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
               </div>
-            </div>
+
+              {/* Client Navigation Tabs */}
+              <div className="flex space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                {[
+                  { id: "rooms", label: "Virtual Classrooms", icon: Video },
+                  { id: "teachers", label: "Teachers & Staff", icon: Users },
+                  { id: "recordings", label: "Class Recordings", icon: HardDrive },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = clientTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setClientTab(tab.id as any)}
+                      className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                        isActive
+                          ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* CLIENT TAB 1: VIRTUAL CLASSROOMS */}
+              {clientTab === "rooms" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3 glass-card p-4 rounded-2xl">
+                    <div>
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                        <Video className="w-4 h-4 text-purple-600" />
+                        <span>Configured Virtual Classrooms ({clientRooms.length})</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Launch live BigBlueButton sessions or distribute direct invite links to students and faculty
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setRoomError(null);
+                        setIsAddRoomModalOpen(true);
+                      }}
+                      className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-md shadow-purple-500/20"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      <span>+ Create Virtual Classroom</span>
+                    </button>
+                  </div>
+
+                  {isLoadingRooms ? (
+                    <div className="glass-card p-12 text-center rounded-3xl">
+                      <RefreshCw className="w-6 h-6 text-purple-600 animate-spin mx-auto mb-2" />
+                      <div className="text-xs font-bold text-slate-500">Loading virtual classrooms...</div>
+                    </div>
+                  ) : clientRooms.length === 0 ? (
+                    <div className="glass-card p-12 text-center rounded-3xl space-y-4 max-w-xl mx-auto">
+                      <div className="w-16 h-16 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center mx-auto shadow-md">
+                        <Video className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">No Virtual Classrooms Created</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Create your first course room or lecture hall for {activeCollege.name}. Each classroom gets a dedicated BigBlueButton meeting room with auto-recording capability.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setRoomError(null);
+                          setIsAddRoomModalOpen(true);
+                        }}
+                        className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-500/20 transition transform hover:scale-105"
+                      >
+                        + Create First Virtual Classroom
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="glass-card rounded-3xl overflow-hidden shadow-xs">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-100/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 uppercase font-black tracking-wider">
+                          <tr>
+                            <th className="py-4 px-5">Classroom Name</th>
+                            <th className="py-4 px-5">Teacher / Moderator</th>
+                            <th className="py-4 px-5">Status</th>
+                            <th className="py-4 px-5">Live Students</th>
+                            <th className="py-4 px-5">Auto-Record</th>
+                            <th className="py-4 px-5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                          {clientRooms.map((room) => (
+                            <tr key={room.id} className="hover:bg-purple-50/40 dark:hover:bg-slate-800/40 transition">
+                              <td className="py-4 px-5">
+                                <div className="font-extrabold text-slate-900 dark:text-white">{room.name}</div>
+                                <div className="text-xs text-slate-500 font-mono mt-0.5">/{room.slug}</div>
+                              </td>
+                              <td className="py-4 px-5 font-medium">{room.teacher || "Instructor"}</td>
+                              <td className="py-4 px-5">
+                                <span
+                                  className={`text-xs px-2.5 py-1 rounded-full font-black ${
+                                    room.status === "RUNNING"
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-300 animate-pulse"
+                                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200"
+                                  }`}
+                                >
+                                  {room.status === "RUNNING" ? `LIVE (${room.durationMinutes || 0}m)` : "IDLE"}
+                                </span>
+                              </td>
+                              <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
+                                {room.studentsCount > 0 ? `${room.studentsCount} Students` : "—"}
+                              </td>
+                              <td className="py-4 px-5">
+                                <span className="text-xs px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-bold">
+                                  {room.recordEnabled ? "Enabled" : "Disabled"}
+                                </span>
+                              </td>
+                              <td className="py-4 px-5 text-right space-x-2">
+                                <button
+                                  onClick={() => launchMeeting(room.id)}
+                                  className={`text-xs px-3.5 py-1.5 rounded-xl border font-bold transition-all duration-200 ${
+                                    room.status === "RUNNING"
+                                      ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                      : "bg-emerald-600 text-white border-transparent hover:bg-emerald-700 shadow-xs"
+                                  }`}
+                                >
+                                  {room.status === "RUNNING" ? "End Class" : "Start Class (BBB)"}
+                                </button>
+                                <button
+                                  onClick={() => copyToClipboard(`https://panel.aeoraxlive.com/join/${activeCollege.slug}/${room.slug}`)}
+                                  className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 transition"
+                                >
+                                  Copy Student Link
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRoom(room.id, room.name)}
+                                  className="p-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition inline-flex items-center justify-center align-middle"
+                                  title="Delete Classroom"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* CLIENT TAB 3: RECORDINGS */}
+              {clientTab === "recordings" && (
+                <div className="glass-card p-6 rounded-3xl space-y-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Classroom Recordings Library</h3>
+                    <p className="text-xs text-slate-500 font-medium">All sessions are securely archived to Cloudflare R2 object storage.</p>
+                  </div>
+
+                  <div className="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center mx-auto">
+                      <HardDrive className="w-6 h-6" />
+                    </div>
+                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200">No Session Recordings Found</div>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                      When instructors end virtual classrooms with Auto-Recording enabled, BigBlueButton processes the video and archives the replay to Cloudflare R2 storage automatically.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* CLIENT TAB 4: TEACHERS */}
+              {clientTab === "teachers" && (
+                <div className="glass-card p-6 rounded-3xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">Authorized College Faculty</h3>
+                      <p className="text-xs text-slate-500 font-medium">Teachers and moderators assigned to virtual classrooms</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setRoomError(null);
+                        setIsAddRoomModalOpen(true);
+                      }}
+                      className="px-3.5 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition"
+                    >
+                      + Add Classroom & Teacher
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const teachers = Array.from(new Set(clientRooms.map((r) => r.teacher).filter(Boolean))).map((name) => {
+                      const assigned = clientRooms.filter((r) => r.teacher === name).map((r) => r.name).join(", ");
+                      return {
+                        name,
+                        email: `${name.toLowerCase().replace(/[^a-z0-9]/g, "")}@${activeCollege.slug}.aeoraxlive.com`,
+                        rooms: assigned || "General Faculty",
+                      };
+                    });
+
+                    if (teachers.length === 0) {
+                      return (
+                        <div className="p-10 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+                          No instructors assigned yet. Create virtual classrooms with instructor names to manage faculty.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {teachers.map((t, i) => (
+                          <div key={i} className="py-3.5 flex items-center justify-between">
+                            <div>
+                              <div className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</div>
+                              <div className="text-xs text-slate-500 mt-0.5">{t.email} • Assigned: {t.rooms}</div>
+                            </div>
+                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200">
+                              Active Faculty
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </>
           )}
         </main>
       ) : (
@@ -1236,7 +1442,7 @@ export default function AeoraxDashboard() {
                 {nodes.length}
               </div>
               <div className="text-xs font-bold text-purple-700 dark:text-purple-400 mt-2">
-                3 Ready • 1 Draining
+                {nodes.filter((n) => n.status === "READY").length} Ready • {nodes.filter((n) => n.status === "DRAIN").length} Draining
               </div>
               <div className="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-2.5 flex items-center space-x-1">
                 <span>Manage Node Servers</span>
@@ -2643,59 +2849,158 @@ export default function AeoraxDashboard() {
 
           {/* SUPER ADMIN TAB 3: COLLEGES & QUOTAS */}
           {adminTab === "colleges" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {colleges.map((col) => (
-                <div key={col.id} className="glass-card glass-hover p-6 rounded-3xl space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">{col.name}</h3>
-                      <div className="text-xs text-slate-500 font-mono mt-1">Tenant Slug: {col.slug}</div>
-                    </div>
-                    <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-bold">
-                      {col.plan}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Concurrent Classrooms</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{col.activeRooms} / {col.maxRooms} rooms</span>
-                    </div>
-                    <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-600 rounded-full" style={{ width: `${(col.activeRooms / col.maxRooms) * 100}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs">
-                    <button
-                      onClick={() => {
-                        setSelectedMoodleCollegeSlug(col.slug);
-                        setAdminTab("moodle");
-                      }}
-                      className="font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Configure LMS Gateway →</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedCollegeSlug(col.slug);
-                        setCurrentView("CLIENT_PORTAL");
-                      }}
-                      className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline"
-                    >
-                      View Client Portal →
-                    </button>
-                  </div>
+            <div className="space-y-5">
+              {/* Top Action Header */}
+              <div className="flex items-center justify-between flex-wrap gap-4 glass-card p-5 rounded-2xl">
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
+                    <GraduationCap className="w-5 h-5 text-blue-600" />
+                    <span>Registered Client Colleges & Tenant Quotas</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Provision institutional client accounts, assign concurrent room quotas, student limits, and generate secure API keys
+                  </p>
                 </div>
-              ))}
+
+                <button
+                  onClick={() => {
+                    setCollegeError(null);
+                    setIsAddCollegeModalOpen(true);
+                  }}
+                  className="flex items-center space-x-1.5 px-4.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition shadow-lg shadow-blue-500/25 transform hover:scale-105"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ Register New Client College</span>
+                </button>
+              </div>
+
+              {isLoadingColleges ? (
+                <div className="glass-card p-12 text-center rounded-3xl">
+                  <RefreshCw className="w-6 h-6 text-blue-600 animate-spin mx-auto mb-2" />
+                  <div className="text-xs font-bold text-slate-500">Loading client institutions...</div>
+                </div>
+              ) : colleges.length === 0 ? (
+                <div className="glass-card p-12 text-center rounded-3xl space-y-4 max-w-xl mx-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center mx-auto shadow-md">
+                    <GraduationCap className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">No Client Colleges Registered</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Get started by adding your first educational client, university, or academy to allocate dedicated virtual classroom capacity and auto-generated BigBlueButton API credentials.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setCollegeError(null);
+                      setIsAddCollegeModalOpen(true);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition transform hover:scale-105"
+                  >
+                    + Register First Client College
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {colleges.map((col) => (
+                    <div key={col.id} className="glass-card glass-hover p-6 rounded-3xl space-y-4 relative">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">{col.name}</h3>
+                          <div className="text-xs text-slate-500 font-mono mt-1">Tenant Slug: {col.slug}</div>
+                          {col.contactEmail && (
+                            <div className="text-xs text-slate-400 mt-0.5">{col.contactEmail}</div>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-bold">
+                            {col.plan}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteCollege(col.id, col.name)}
+                            className="p-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                            title="Delete Client Institution"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">Concurrent Classrooms</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{col.activeRooms} / {col.maxRooms} rooms</span>
+                        </div>
+                        <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-600 rounded-full"
+                            style={{ width: `${Math.min(100, (col.activeRooms / (col.maxRooms || 1)) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                          <div className="text-slate-500 text-[11px] font-semibold">Max Students</div>
+                          <div className="font-bold text-slate-900 dark:text-white mt-0.5">{col.maxStudents} Students</div>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                          <div className="text-slate-500 text-[11px] font-semibold">Cloud Storage Quota</div>
+                          <div className="font-bold text-slate-900 dark:text-white mt-0.5">{col.storageLimitGb} GB (R2)</div>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs">
+                        <button
+                          onClick={() => {
+                            setSelectedMoodleCollegeSlug(col.slug);
+                            setAdminTab("moodle");
+                          }}
+                          className="font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Configure LMS Gateway →</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedCollegeSlug(col.slug);
+                            setCurrentView("CLIENT_PORTAL");
+                          }}
+                          className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline"
+                        >
+                          View Client Portal →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* SUPER ADMIN TAB 4: MOODLE & LMS GATEWAY (SUPER ADMIN MANAGED ONLY) */}
           {adminTab === "moodle" && (
             <div className="space-y-6">
-              {/* Header Banner */}
+              {colleges.length === 0 ? (
+                <div className="glass-card p-12 text-center rounded-3xl space-y-4 max-w-xl mx-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center mx-auto shadow-md">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">No Client Colleges Available</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Register an institutional client college first to generate secure LMS API keys, gateway endpoints, and Moodle integration credentials.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setAdminTab("colleges");
+                      setIsAddCollegeModalOpen(true);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-blue-500/20"
+                  >
+                    + Register Client College
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Header Banner */}
               <div className="glass-card p-6 rounded-3xl relative overflow-hidden bg-gradient-to-r from-blue-50 via-indigo-50/50 to-white dark:from-blue-950/30 dark:via-slate-900/60 dark:to-indigo-950/30 border border-blue-200/90 dark:border-blue-800/40 shadow-xs">
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div className="flex items-start space-x-4">
@@ -2910,6 +3215,8 @@ export default function AeoraxDashboard() {
                   </div>
                 );
               })()}
+                </>
+              )}
             </div>
           )}
 
@@ -2933,17 +3240,21 @@ export default function AeoraxDashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <div className="text-xs text-slate-500 font-bold">Total Storage Consumed</div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">324.8 GB</div>
-                  <div className="text-xs text-slate-500 mt-1">across 3 active colleges</div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                    {colleges.reduce((acc, c) => acc + (c.storageGb || 0), 0).toFixed(1)} GB
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    across {colleges.length} registered {colleges.length === 1 ? "college" : "colleges"}
+                  </div>
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="text-xs text-slate-500 font-bold">Recordings Processed (Today)</div>
-                  <div className="text-2xl font-black text-blue-600 mt-1">42 Sessions</div>
-                  <div className="text-xs text-slate-500 mt-1">avg. 48 mins per lecture</div>
+                  <div className="text-xs text-slate-500 font-bold">Live Virtual Classrooms</div>
+                  <div className="text-2xl font-black text-blue-600 mt-1">{totalRooms} Active</div>
+                  <div className="text-xs text-slate-500 mt-1">auto-recording to R2 on class end</div>
                 </div>
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  <div className="text-xs text-slate-500 font-bold">Estimated Monthly Cost</div>
-                  <div className="text-2xl font-black text-emerald-600 mt-1">$4.85 / mo</div>
+                  <div className="text-xs text-slate-500 font-bold">R2 Storage Rate</div>
+                  <div className="text-2xl font-black text-emerald-600 mt-1">$0.015 / GB</div>
                   <div className="text-xs text-slate-500 mt-1">Zero egress fees on Cloudflare R2</div>
                 </div>
               </div>
@@ -2963,7 +3274,7 @@ export default function AeoraxDashboard() {
                   </p>
                 </div>
                 <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-bold border border-blue-300">
-                  Cluster Status: HEALTHY
+                  Cluster Status: {nodes.some((n) => n.status === "READY") ? "HEALTHY" : "OFFLINE"}
                 </span>
               </div>
 
@@ -2972,25 +3283,39 @@ export default function AeoraxDashboard() {
                   <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
                     <div className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                      Fleet Headroom Adequate (39.5% Available)
+                      Fleet Cluster Online ({nodes.filter((n) => n.status === "READY").length} Active Nodes)
                     </div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                      Current fleet of 4 BBB nodes can support an additional 360 concurrent participants without quality degradation.
+                      Current fleet of {nodes.length} BigBlueButton node{nodes.length === 1 ? "" : "s"} is dynamically balanced via Scalelite and monitored by real-time hardware telemetry daemons.
                     </div>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 flex items-start space-x-3">
-                  <Server className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="text-xs font-bold text-blue-900 dark:text-blue-300">
-                      Node 04 Scheduled Maintenance in Progress
-                    </div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                      Node 04 is currently in DRAIN mode. Scalelite is gracefully allowing existing meetings to conclude before kernel updates.
+                {nodes.some((n) => n.status === "DRAIN") ? (
+                  <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 flex items-start space-x-3">
+                    <Server className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                        Node Maintenance in Progress ({nodes.filter((n) => n.status === "DRAIN").map((n) => n.name).join(", ")})
+                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        These nodes are currently in DRAIN mode. Scalelite is allowing existing meetings to conclude before updates.
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 flex items-start space-x-3">
+                    <Server className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-blue-900 dark:text-blue-300">
+                        Zero Node Bottlenecks Detected
+                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                        All meeting servers are reporting nominal CPU, RAM, and WebRTC media streams with zero queued session transfers.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -3022,7 +3347,7 @@ export default function AeoraxDashboard() {
                 <div className="flex items-center space-x-2">
                   <span className="text-xs font-bold text-slate-500">Target Mechanism:</span>
                   <span className="text-xs px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 font-mono text-purple-700 dark:text-purple-300 font-bold">
-                    BigBlueButton 3.0 HTML5 Dynamic Injection
+                    BigBlueButton HTML5 Dynamic Injection
                   </span>
                 </div>
               </div>
@@ -3067,10 +3392,7 @@ export default function AeoraxDashboard() {
                       <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
                         {[
                           { slug: "default", name: "⭐ Global Master Brand", isGlobal: true },
-                          { slug: "oxford-intl", name: "Oxford Int'l" },
-                          { slug: "stanford-demo", name: "Stanford Demo" },
-                          { slug: "cambridge-biz", name: "Cambridge Biz" },
-                          { slug: "mit-online", name: "MIT Academy" },
+                          ...colleges.map((c) => ({ slug: c.slug, name: c.name, isGlobal: false })),
                         ].map((col) => {
                           const isSelected = selectedBrandingCollegeSlug === col.slug;
                           const isWhitelabeled = col.isGlobal
@@ -3085,7 +3407,7 @@ export default function AeoraxDashboard() {
                               className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
                                 isSelected
                                   ? col.isGlobal
-                                    ? "border-indigo-500 bg-indigo-50/90 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/30"
+                                    ? "border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-200 ring-2 ring-indigo-500/20"
                                     : "border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20"
                                   : "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
                               }`}
@@ -3842,6 +4164,317 @@ export default function AeoraxDashboard() {
             </div>
           )}
         </main>
+      )}
+
+
+      {/* Modal 1: Register New Client College */}
+      {isAddCollegeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-card w-full max-w-xl rounded-3xl p-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+            <button
+              onClick={() => setIsAddCollegeModalOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-3 mb-5">
+              <div className="p-3 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25">
+                <Building className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Register New Client College</h3>
+                <p className="text-xs text-slate-500">
+                  Provision an isolated tenant database record with unique BBB API keys and quotas.
+                </p>
+              </div>
+            </div>
+
+            {collegeError && (
+              <div className="mb-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-medium">
+                {collegeError}
+              </div>
+            )}
+
+            <form onSubmit={handleAddCollege} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Institution / College Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Oxford Grammar School"
+                    value={collegeFormData.name}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                      setCollegeFormData((prev) => ({
+                        ...prev,
+                        name,
+                        slug: prev.slug === "" || prev.slug === prev.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") ? slug : prev.slug,
+                      }));
+                    }}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Tenant Slug (Subdomain) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. oxford-grammar"
+                    value={collegeFormData.slug}
+                    onChange={(e) => setCollegeFormData((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-mono font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Admin Contact Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="admin@institution.edu"
+                    value={collegeFormData.contactEmail}
+                    onChange={(e) => setCollegeFormData((prev) => ({ ...prev, contactEmail: e.target.value }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Contact Phone (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="+92 300 1234567"
+                    value={collegeFormData.contactPhone}
+                    onChange={(e) => setCollegeFormData((prev) => ({ ...prev, contactPhone: e.target.value }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                  Subscription Tier / Package
+                </label>
+                <select
+                  value={collegeFormData.plan}
+                  onChange={(e) => {
+                    const plan = e.target.value;
+                    if (plan.includes("Standard")) {
+                      setCollegeFormData((prev) => ({ ...prev, plan, maxConcurrentRooms: 8, maxTotalParticipants: 300, storageLimitGb: 100 }));
+                    } else if (plan.includes("Enterprise")) {
+                      setCollegeFormData((prev) => ({ ...prev, plan, maxConcurrentRooms: 20, maxTotalParticipants: 1000, storageLimitGb: 500 }));
+                    } else if (plan.includes("University")) {
+                      setCollegeFormData((prev) => ({ ...prev, plan, maxConcurrentRooms: 50, maxTotalParticipants: 2500, storageLimitGb: 1000 }));
+                    } else {
+                      setCollegeFormData((prev) => ({ ...prev, plan }));
+                    }
+                  }}
+                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Standard College (8 Rooms)">Standard College (8 Rooms • 300 Students • 100GB R2)</option>
+                  <option value="Enterprise Academy (20 Rooms)">Enterprise Academy (20 Rooms • 1,000 Students • 500GB R2)</option>
+                  <option value="University Campus (50 Rooms)">University Campus (50 Rooms • 2,500 Students • 1TB R2)</option>
+                  <option value="Custom Plan">Custom / Bespoke Plan</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Max Rooms
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={collegeFormData.maxConcurrentRooms}
+                    onChange={(e) => setCollegeFormData((prev) => ({ ...prev, maxConcurrentRooms: Number(e.target.value) || 1 }))}
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Max Students
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={collegeFormData.maxTotalParticipants}
+                    onChange={(e) => setCollegeFormData((prev) => ({ ...prev, maxTotalParticipants: Number(e.target.value) || 10 }))}
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    R2 Storage (GB)
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={collegeFormData.storageLimitGb}
+                    onChange={(e) => setCollegeFormData((prev) => ({ ...prev, storageLimitGb: Number(e.target.value) || 10 }))}
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddCollegeModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingCollege}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
+                >
+                  {isCreatingCollege ? "Registering Client..." : "Register Client College"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Create Virtual Classroom */}
+      {isAddRoomModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-card w-full max-w-lg rounded-3xl p-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+            <button
+              onClick={() => setIsAddRoomModalOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-3 mb-5">
+              <div className="p-3 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25">
+                <Video className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Create Virtual Classroom</h3>
+                <p className="text-xs text-slate-500">
+                  Add a live lecture hall for {activeCollege?.name || "Client Institution"}.
+                </p>
+              </div>
+            </div>
+
+            {roomError && (
+              <div className="mb-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-medium">
+                {roomError}
+              </div>
+            )}
+
+            <form onSubmit={handleAddRoom} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                  Classroom Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Physics 101 - Mechanics & Optics"
+                  value={roomFormData.name}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                    setRoomFormData((prev) => ({
+                      ...prev,
+                      name,
+                      slug: prev.slug === "" || prev.slug === prev.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") ? slug : prev.slug,
+                    }));
+                  }}
+                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Room Slug (URL Identifier) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. phy-101"
+                    value={roomFormData.slug}
+                    onChange={(e) => setRoomFormData((prev) => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-mono font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Assigned Instructor / Teacher
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dr. Tariq"
+                    value={roomFormData.teacher}
+                    onChange={(e) => setRoomFormData((prev) => ({ ...prev, teacher: e.target.value }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Max Participants Capacity
+                  </label>
+                  <input
+                    type="number"
+                    min="2"
+                    max={activeCollege?.maxStudents || 500}
+                    value={roomFormData.maxParticipants}
+                    onChange={(e) => setRoomFormData((prev) => ({ ...prev, maxParticipants: Number(e.target.value) || 50 }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center space-x-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={roomFormData.recordEnabled}
+                      onChange={(e) => setRoomFormData((prev) => ({ ...prev, recordEnabled: e.target.checked }))}
+                      className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4"
+                    />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Auto-Record Live Lectures
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddRoomModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingRoom}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-purple-500/25 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50"
+                >
+                  {isCreatingRoom ? "Creating..." : "Create Classroom"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Footer */}

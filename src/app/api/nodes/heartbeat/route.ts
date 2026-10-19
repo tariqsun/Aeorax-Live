@@ -16,10 +16,21 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingNode) {
+      const ramTotal = existingNode.ramGb || 16;
+      const diskTotal = existingNode.diskGb || 100;
+      const ramPct = typeof ram_pct === "number" ? ram_pct : existingNode.ramUsagePercent;
+      const diskPct = typeof disk_pct === "number" ? disk_pct : existingNode.diskUsagePercent;
+      const ramUsed = Math.round((ramPct / 100) * ramTotal * 10) / 10;
+      const diskUsed = Math.round((diskPct / 100) * diskTotal * 10) / 10;
+
       await prisma.node.update({
         where: { fqdn },
         data: {
           cpuUsagePercent: typeof cpu_pct === "number" ? cpu_pct : existingNode.cpuUsagePercent,
+          ramUsagePercent: ramPct,
+          diskUsagePercent: diskPct,
+          ramUsedGb: ramUsed,
+          diskUsedGb: diskUsed,
           activeMeetingsCount: typeof active_meetings === "number" ? active_meetings : existingNode.activeMeetingsCount,
           activeParticipantsCount: typeof active_participants === "number" ? active_participants : existingNode.activeParticipantsCount,
           lastHeartbeatAt: new Date(),
