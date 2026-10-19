@@ -73,9 +73,9 @@ chmod +x /root/bbb-install.sh
 
 UBUNTU_VER=$(grep "VERSION_ID" /etc/os-release | cut -d'"' -f2 || echo "24.04")
 if [ "$UBUNTU_VER" = "24.04" ]; then
-    /root/bbb-install.sh -v noble-400 -s "${fqdn}" -e "${adminEmail}" -a
+    /root/bbb-install.sh -v noble-400 -s "${fqdn}" -e "${adminEmail}"
 else
-    /root/bbb-install.sh -v jammy-300 -s "${fqdn}" -e "${adminEmail}" -a
+    /root/bbb-install.sh -v jammy-300 -s "${fqdn}" -e "${adminEmail}"
 fi
 
 echo "[Aeorax] Verifying BigBlueButton status post-upgrade..."

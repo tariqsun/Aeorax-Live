@@ -80,13 +80,13 @@ else
         wget -qO /root/bbb-install.sh https://raw.githubusercontent.com/bigbluebutton/bbb-install/v4.0.x-release/bbb-install.sh || wget -qO /root/bbb-install.sh https://ubuntu.bigbluebutton.org/bbb-install.sh
         chmod +x /root/bbb-install.sh
         echo "[Aeorax] Running BigBlueButton 4.0 installer (-v noble-400)..."
-        /root/bbb-install.sh -v noble-400 -s "${fqdn}" -e "${adminEmail}" -a
+        /root/bbb-install.sh -v noble-400 -s "${fqdn}" -e "${adminEmail}"
     else
         echo "[Aeorax] Target: BigBlueButton 3.0 for Ubuntu 22.04 (jammy-300)..."
         wget -qO /root/bbb-install.sh https://ubuntu.bigbluebutton.org/bbb-install-2.7.sh
         chmod +x /root/bbb-install.sh
         echo "[Aeorax] Running BigBlueButton 3.0 installer (-v jammy-300)..."
-        /root/bbb-install.sh -v jammy-300 -s "${fqdn}" -e "${adminEmail}" -a
+        /root/bbb-install.sh -v jammy-300 -s "${fqdn}" -e "${adminEmail}"
     fi
 fi
 

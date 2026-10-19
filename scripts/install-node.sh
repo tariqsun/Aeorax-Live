@@ -129,18 +129,26 @@ ufw allow 16384:32768/udp comment 'BBB FreeSWITCH WebRTC Media Audio/Video'
 ufw allow 9100/tcp comment 'Node Exporter Metrics'
 ufw --force enable
 
-# Step 4: BigBlueButton 3.0.39 Installation
-echo -e "${YELLOW}[4/5] Installing BigBlueButton 3.0 with Let's Encrypt SSL...${NC}"
+# Step 4: BigBlueButton Installation
+echo -e "${YELLOW}[4/5] Installing BigBlueButton with Let's Encrypt SSL...${NC}"
 if which bbb-conf > /dev/null 2>&1; then
     echo -e "${GREEN}[OK] BigBlueButton is already installed. Verifying configuration...${NC}"
     bbb-conf --check
 else
-    echo -e "${CYAN}Downloading official BigBlueButton installer...${NC}"
-    wget -qO /root/bbb-install-2.7.sh https://ubuntu.bigbluebutton.org/bbb-install-2.7.sh
-    chmod +x /root/bbb-install-2.7.sh
-
-    echo -e "${CYAN}Running BigBlueButton 3.0 (Jammy-300) installation (takes ~5-10 minutes)...${NC}"
-    /root/bbb-install-2.7.sh -v jammy-300 -s "$FQDN" -e "$EMAIL" -a
+    UBUNTU_VER=$(grep "VERSION_ID" /etc/os-release | cut -d'"' -f2 || echo "24.04")
+    if [ "$UBUNTU_VER" = "24.04" ]; then
+        echo -e "${CYAN}Target: BigBlueButton 4.0 for Ubuntu 24.04 (noble-400)...${NC}"
+        wget -qO /root/bbb-install.sh https://raw.githubusercontent.com/bigbluebutton/bbb-install/v4.0.x-release/bbb-install.sh || wget -qO /root/bbb-install.sh https://ubuntu.bigbluebutton.org/bbb-install.sh
+        chmod +x /root/bbb-install.sh
+        echo -e "${CYAN}Running BigBlueButton 4.0 (Noble-400) installation...${NC}"
+        /root/bbb-install.sh -v noble-400 -s "$FQDN" -e "$EMAIL"
+    else
+        echo -e "${CYAN}Target: BigBlueButton 3.0 for Ubuntu 22.04 (jammy-300)...${NC}"
+        wget -qO /root/bbb-install.sh https://ubuntu.bigbluebutton.org/bbb-install-2.7.sh
+        chmod +x /root/bbb-install.sh
+        echo -e "${CYAN}Running BigBlueButton 3.0 (Jammy-300) installation...${NC}"
+        /root/bbb-install.sh -v jammy-300 -s "$FQDN" -e "$EMAIL"
+    fi
 fi
 
 # Step 5: Install Aeorax Telemetry & Monitoring Client Agent
