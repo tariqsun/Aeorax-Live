@@ -47,6 +47,17 @@ interface R2ObjectItem {
   etag?: string;
 }
 
+interface SubscriptionTier {
+  id: string;
+  name: string;
+  priceMonthly: number;
+  maxRooms: number;
+  maxStudents: number;
+  storageGb: number;
+  description: string;
+  features: string[];
+}
+
 interface NodeData {
   id: string;
   name: string;
@@ -691,6 +702,90 @@ export default function AeoraxDashboard() {
     maxTotalParticipants: 300,
     storageLimitGb: 100,
   });
+
+  // Subscription Packages & Tiers State
+  const [subscriptionTiers, setSubscriptionTiers] = useState<SubscriptionTier[]>([
+    {
+      id: "tier-standard",
+      name: "Standard College (8 Rooms)",
+      priceMonthly: 149,
+      maxRooms: 8,
+      maxStudents: 300,
+      storageGb: 100,
+      description: "Ideal for small to medium colleges & academies with up to 8 concurrent classrooms.",
+      features: ["8 Concurrent Live Classrooms", "300 Total Students Capacity", "100 GB Cloudflare R2 Storage", "Auto-Recording & Playback", "Standard Moodle Plugin Support"],
+    },
+    {
+      id: "tier-enterprise",
+      name: "Enterprise Academy (20 Rooms)",
+      priceMonthly: 349,
+      maxRooms: 20,
+      maxStudents: 1000,
+      storageGb: 500,
+      description: "Designed for large multi-campus institutions requiring higher concurrent limits.",
+      features: ["20 Concurrent Live Classrooms", "1,000 Total Students Capacity", "500 GB Cloudflare R2 Storage", "White-Label Branding & Custom CSS", "Priority WebRTC Routing SLA"],
+    },
+    {
+      id: "tier-university",
+      name: "University Campus (50 Rooms)",
+      priceMonthly: 799,
+      maxRooms: 50,
+      maxStudents: 2500,
+      storageGb: 1000,
+      description: "Full university deployment with dedicated node pool assignment and massive concurrency.",
+      features: ["50 Concurrent Live Classrooms", "2,500 Total Students Capacity", "1 TB Cloudflare R2 Storage", "Dedicated BigBlueButton Nodes", "Custom Subdomain & VIP Support"],
+    },
+  ]);
+
+  const [collegesSubTab, setCollegesSubTab] = useState<"clients" | "packages">("clients");
+  const [isAddTierModalOpen, setIsAddTierModalOpen] = useState<boolean>(false);
+  const [newTierFormData, setNewTierFormData] = useState({
+    name: "",
+    priceMonthly: 199,
+    maxRooms: 10,
+    maxStudents: 500,
+    storageGb: 200,
+    description: "",
+    featuresText: "Auto-Recording, Moodle Integration, Cloudflare R2 Storage",
+  });
+
+  const handleAddNewTier = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTierFormData.name) return;
+    const features = newTierFormData.featuresText
+      .split(",")
+      .map((f) => f.trim())
+      .filter(Boolean);
+
+    const newTier: SubscriptionTier = {
+      id: `tier-${Date.now()}`,
+      name: newTierFormData.name,
+      priceMonthly: Number(newTierFormData.priceMonthly) || 0,
+      maxRooms: Number(newTierFormData.maxRooms) || 1,
+      maxStudents: Number(newTierFormData.maxStudents) || 10,
+      storageGb: Number(newTierFormData.storageGb) || 10,
+      description: newTierFormData.description || `Custom package with ${newTierFormData.maxRooms} rooms.`,
+      features: features.length > 0 ? features : ["Live BigBlueButton Classrooms", "R2 Cloud Storage"],
+    };
+
+    setSubscriptionTiers((prev) => [...prev, newTier]);
+    setIsAddTierModalOpen(false);
+    setNewTierFormData({
+      name: "",
+      priceMonthly: 199,
+      maxRooms: 10,
+      maxStudents: 500,
+      storageGb: 200,
+      description: "",
+      featuresText: "Auto-Recording, Moodle Integration, Cloudflare R2 Storage",
+    });
+  };
+
+  const handleDeleteTier = (id: string, name: string) => {
+    if (confirm(`Delete subscription package "${name}"?`)) {
+      setSubscriptionTiers((prev) => prev.filter((t) => t.id !== id));
+    }
+  };
 
   const fetchColleges = async () => {
     try {
@@ -1808,7 +1903,7 @@ export default function AeoraxDashboard() {
                       </span>
                     </div>
                     <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 max-w-3xl">
-                      Current aggregate node fleet utilization is <strong className="text-blue-600 dark:text-blue-400 font-bold">52.4%</strong>. All active WebRTC streams are operating with low jitter (&lt;12ms).
+                      Current aggregate node fleet utilization is <strong className="text-blue-600 dark:text-blue-400 font-bold">{nodes.length > 0 ? (nodes.reduce((acc, n) => acc + (n.cpu || 0), 0) / nodes.length).toFixed(1) : "0.0"}%</strong> across {nodes.length} BigBlueButton {nodes.length === 1 ? "node" : "nodes"}. All active WebRTC streams are operating with low jitter (&lt;12ms).
                     </p>
                   </div>
                 </div>
@@ -1831,7 +1926,7 @@ export default function AeoraxDashboard() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                        Load Balancer API: <code className="text-purple-600 dark:text-purple-400 font-bold font-mono">http://scalelite:3000/bigbluebutton/api</code> • Secret: <code className="text-slate-600 dark:text-slate-400 font-mono">aeorax_scalelite_...</code>
+                        Load Balancer API: <code className="text-purple-600 dark:text-purple-400 font-bold font-mono">https://master.nesthost.net/bigbluebutton/api</code> • Secret: <code className="text-slate-600 dark:text-slate-400 font-mono">sample_scalelite_secret</code>
                       </p>
                     </div>
                   </div>
@@ -3103,26 +3198,67 @@ export default function AeoraxDashboard() {
                 <div>
                   <h3 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
                     <GraduationCap className="w-5 h-5 text-blue-600" />
-                    <span>Registered Client Colleges & Tenant Quotas</span>
+                    <span>Client Institutions, Quotas & Subscription Tiers</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Provision institutional client accounts, assign concurrent room quotas, student limits, and generate secure API keys
+                    Provision institutional client accounts, manage subscription packages, assign concurrent room quotas and R2 storage
                   </p>
                 </div>
 
+                <div className="flex items-center space-x-3">
+                  {collegesSubTab === "packages" ? (
+                    <button
+                      onClick={() => setIsAddTierModalOpen(true)}
+                      className="flex items-center space-x-1.5 px-4.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold transition shadow-lg shadow-purple-500/25 transform hover:scale-105"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>+ Create Subscription Tier</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setCollegeError(null);
+                        setIsAddCollegeModalOpen(true);
+                      }}
+                      className="flex items-center space-x-1.5 px-4.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition shadow-lg shadow-blue-500/25 transform hover:scale-105"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>+ Register New Client College</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Sub-Navigation Tabs */}
+              <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 pb-3">
                 <button
-                  onClick={() => {
-                    setCollegeError(null);
-                    setIsAddCollegeModalOpen(true);
-                  }}
-                  className="flex items-center space-x-1.5 px-4.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition shadow-lg shadow-blue-500/25 transform hover:scale-105"
+                  onClick={() => setCollegesSubTab("clients")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
+                    collegesSubTab === "clients"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                      : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                  }`}
                 >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>+ Register New Client College</span>
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  <span>Client Institutions ({colleges.length})</span>
+                </button>
+                <button
+                  onClick={() => setCollegesSubTab("packages")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
+                    collegesSubTab === "packages"
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
+                      : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Subscription Tiers & Packages ({subscriptionTiers.length})</span>
                 </button>
               </div>
 
-              {isLoadingColleges ? (
+              {/* SUB-VIEW 1: CLIENT COLLEGES */}
+              {collegesSubTab === "clients" && (
+                <>
+                  {isLoadingColleges ? (
                 <div className="glass-card p-12 text-center rounded-3xl">
                   <RefreshCw className="w-6 h-6 text-blue-600 animate-spin mx-auto mb-2" />
                   <div className="text-xs font-bold text-slate-500">Loading client institutions...</div>
@@ -3221,8 +3357,109 @@ export default function AeoraxDashboard() {
                   ))}
                 </div>
               )}
+            </>
+          )}
+
+          {/* SUB-VIEW 2: SUBSCRIPTION TIERS & PACKAGES */}
+          {collegesSubTab === "packages" && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {subscriptionTiers.map((tier) => {
+                  const enrolledCount = colleges.filter((c) =>
+                    c.plan?.toLowerCase().includes(tier.name.toLowerCase().split(" ")[0])
+                  ).length;
+
+                  return (
+                    <div
+                      key={tier.id}
+                      className="glass-card p-6 rounded-3xl space-y-5 border border-slate-200 dark:border-slate-800 relative flex flex-col justify-between"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-black text-slate-900 dark:text-white text-base">
+                              {tier.name}
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                              {tier.description}
+                            </p>
+                          </div>
+                          {tier.id.startsWith("tier-") &&
+                            !["tier-standard", "tier-enterprise", "tier-university"].includes(tier.id) && (
+                              <button
+                                onClick={() => handleDeleteTier(tier.id, tier.name)}
+                                className="text-slate-400 hover:text-rose-600 transition"
+                                title="Delete Custom Tier"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-baseline space-x-1">
+                          <span className="text-3xl font-black text-slate-900 dark:text-white">
+                            ${tier.priceMonthly}
+                          </span>
+                          <span className="text-xs text-slate-400 font-medium">/ month</span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center">
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-slate-400">Rooms</div>
+                            <div className="text-sm font-black text-blue-600">{tier.maxRooms}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-slate-400">Students</div>
+                            <div className="text-sm font-black text-purple-600">{tier.maxStudents}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-slate-400">Storage</div>
+                            <div className="text-sm font-black text-emerald-600">{tier.storageGb} GB</div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="text-[11px] uppercase font-bold text-slate-400">Package Inclusions</div>
+                          <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                            {tier.features.map((feat, idx) => (
+                              <li key={idx} className="flex items-center space-x-2">
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>{feat}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-medium">
+                          Enrolled: <strong className="text-slate-900 dark:text-white">{enrolledCount} Institutions</strong>
+                        </span>
+                        <button
+                          onClick={() => {
+                            setCollegeFormData((prev) => ({
+                              ...prev,
+                              plan: tier.name,
+                              maxConcurrentRooms: tier.maxRooms,
+                              maxTotalParticipants: tier.maxStudents,
+                              storageLimitGb: tier.storageGb,
+                            }));
+                            setCollegesSubTab("clients");
+                            setIsAddCollegeModalOpen(true);
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold text-xs transition"
+                        >
+                          Assign Tier →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
+        </div>
+      )}
 
           {/* SUPER ADMIN TAB 4: MOODLE & LMS GATEWAY (SUPER ADMIN MANAGED ONLY) */}
           {adminTab === "moodle" && (
@@ -4697,22 +4934,27 @@ export default function AeoraxDashboard() {
                 <select
                   value={collegeFormData.plan}
                   onChange={(e) => {
-                    const plan = e.target.value;
-                    if (plan.includes("Standard")) {
-                      setCollegeFormData((prev) => ({ ...prev, plan, maxConcurrentRooms: 8, maxTotalParticipants: 300, storageLimitGb: 100 }));
-                    } else if (plan.includes("Enterprise")) {
-                      setCollegeFormData((prev) => ({ ...prev, plan, maxConcurrentRooms: 20, maxTotalParticipants: 1000, storageLimitGb: 500 }));
-                    } else if (plan.includes("University")) {
-                      setCollegeFormData((prev) => ({ ...prev, plan, maxConcurrentRooms: 50, maxTotalParticipants: 2500, storageLimitGb: 1000 }));
+                    const planName = e.target.value;
+                    const matched = subscriptionTiers.find((t) => t.name === planName);
+                    if (matched) {
+                      setCollegeFormData((prev) => ({
+                        ...prev,
+                        plan: matched.name,
+                        maxConcurrentRooms: matched.maxRooms,
+                        maxTotalParticipants: matched.maxStudents,
+                        storageLimitGb: matched.storageGb,
+                      }));
                     } else {
-                      setCollegeFormData((prev) => ({ ...prev, plan }));
+                      setCollegeFormData((prev) => ({ ...prev, plan: planName }));
                     }
                   }}
                   className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="Standard College (8 Rooms)">Standard College (8 Rooms • 300 Students • 100GB R2)</option>
-                  <option value="Enterprise Academy (20 Rooms)">Enterprise Academy (20 Rooms • 1,000 Students • 500GB R2)</option>
-                  <option value="University Campus (50 Rooms)">University Campus (50 Rooms • 2,500 Students • 1TB R2)</option>
+                  {subscriptionTiers.map((tier) => (
+                    <option key={tier.id} value={tier.name}>
+                      {tier.name} — ${tier.priceMonthly}/mo ({tier.maxRooms} Rooms • {tier.maxStudents} Students • {tier.storageGb}GB R2)
+                    </option>
+                  ))}
                   <option value="Custom Plan">Custom / Bespoke Plan</option>
                 </select>
               </div>
@@ -4899,6 +5141,143 @@ export default function AeoraxDashboard() {
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-purple-500/25 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50"
                 >
                   {isCreatingRoom ? "Creating..." : "Create Classroom"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Create Custom Subscription Tier */}
+      {isAddTierModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-card w-full max-w-lg rounded-3xl p-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+            <button
+              onClick={() => setIsAddTierModalOpen(false)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center space-x-3 mb-5">
+              <div className="p-3 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/25">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">Create Subscription Tier</h3>
+                <p className="text-xs text-slate-500">
+                  Configure custom room limits, student quotas, R2 storage, and pricing.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddNewTier} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Tier / Package Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Medical Academy (12 Rooms)"
+                    value={newTierFormData.name}
+                    onChange={(e) => setNewTierFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Monthly Price ($) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={newTierFormData.priceMonthly}
+                    onChange={(e) => setNewTierFormData((prev) => ({ ...prev, priceMonthly: Number(e.target.value) || 0 }))}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Concurrent Rooms
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newTierFormData.maxRooms}
+                    onChange={(e) => setNewTierFormData((prev) => ({ ...prev, maxRooms: Number(e.target.value) || 1 }))}
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Max Students
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={newTierFormData.maxStudents}
+                    onChange={(e) => setNewTierFormData((prev) => ({ ...prev, maxStudents: Number(e.target.value) || 10 }))}
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    R2 Storage (GB)
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={newTierFormData.storageGb}
+                    onChange={(e) => setNewTierFormData((prev) => ({ ...prev, storageGb: Number(e.target.value) || 10 }))}
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                  Tier Description
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Optimized for specialized medical colleges and clinical seminars"
+                  value={newTierFormData.description}
+                  onChange={(e) => setNewTierFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                  Features Included (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Auto-Recording, White-Labeling, Priority WebRTC, Moodle Plugin"
+                  value={newTierFormData.featuresText}
+                  onChange={(e) => setNewTierFormData((prev) => ({ ...prev, featuresText: e.target.value }))}
+                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddTierModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-md shadow-purple-500/25 hover:from-purple-700 hover:to-indigo-700"
+                >
+                  Save Subscription Tier
                 </button>
               </div>
             </form>
