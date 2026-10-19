@@ -290,6 +290,52 @@ export default function AeoraxDashboard() {
   const [installLogs, setInstallLogs] = useState<string[]>([]);
   const [installStatus, setInstallStatus] = useState<"idle" | "running" | "completed" | "error">("idle");
   const [completedNodeResult, setCompletedNodeResult] = useState<any>(null);
+  const [copiedInstallLogs, setCopiedInstallLogs] = useState<boolean>(false);
+  const [copiedUpgradeLogs, setCopiedUpgradeLogs] = useState<boolean>(false);
+
+  const copyTextWithFallback = (text: string, onCopied: () => void) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => {
+        onCopied();
+      }).catch(() => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand("copy");
+          onCopied();
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      });
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        onCopied();
+      } finally {
+        document.body.removeChild(textArea);
+      }
+    }
+  };
+
+  const handleCopyInstallLogs = () => {
+    copyTextWithFallback(installLogs.join("\n"), () => {
+      setCopiedInstallLogs(true);
+      setTimeout(() => setCopiedInstallLogs(false), 2000);
+    });
+  };
+
+  const handleCopyUpgradeLogs = () => {
+    copyTextWithFallback(upgradeLogs.join("\n"), () => {
+      setCopiedUpgradeLogs(true);
+      setTimeout(() => setCopiedUpgradeLogs(false), 2000);
+    });
+  };
 
   const handleRunPreflight = async () => {
     setPreflightStatus("checking");
@@ -1819,12 +1865,33 @@ export default function AeoraxDashboard() {
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
                             <span className="flex items-center space-x-1.5">
-                              <Terminal className="w-3.5 h-3.5" />
+                              <Terminal className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                               <span>Upgrade Execution Output</span>
                             </span>
-                            <span className={`font-mono ${upgradeStatus === "error" ? "text-rose-500" : "text-emerald-500"}`}>
-                              {upgradeStatus === "completed" ? "Done" : upgradeStatus === "error" ? "Halted" : "Live Stream"}
-                            </span>
+                            <div className="flex items-center space-x-2.5">
+                              <button
+                                type="button"
+                                onClick={handleCopyUpgradeLogs}
+                                disabled={upgradeLogs.length === 0}
+                                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-medium transition border border-slate-300 dark:border-slate-700 shadow-sm disabled:opacity-50"
+                                title="Copy all upgrade logs to clipboard"
+                              >
+                                {copiedUpgradeLogs ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Copy Logs</span>
+                                  </>
+                                )}
+                              </button>
+                              <span className={`font-mono font-semibold ${upgradeStatus === "error" ? "text-rose-500" : "text-emerald-500"}`}>
+                                {upgradeStatus === "completed" ? "Done" : upgradeStatus === "error" ? "Halted" : "Live Stream"}
+                              </span>
+                            </div>
                           </div>
                           <div className="p-4 rounded-2xl bg-slate-950 text-slate-200 font-mono text-[11px] h-64 overflow-y-auto space-y-1 border border-slate-800 shadow-inner">
                             {upgradeLogs.map((log, idx) => (
@@ -2400,12 +2467,33 @@ export default function AeoraxDashboard() {
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
                             <span className="flex items-center space-x-1.5">
-                              <Terminal className="w-3.5 h-3.5" />
+                              <Terminal className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                               <span>Live Remote Execution Logs</span>
                             </span>
-                            <span className={`font-mono ${installStatus === "error" ? "text-rose-500" : "text-emerald-500"}`}>
-                              {installStatus === "error" ? "Execution Interrupted" : "Stream Active"}
-                            </span>
+                            <div className="flex items-center space-x-2.5">
+                              <button
+                                type="button"
+                                onClick={handleCopyInstallLogs}
+                                disabled={installLogs.length === 0}
+                                className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-medium transition border border-slate-300 dark:border-slate-700 shadow-sm disabled:opacity-50"
+                                title="Copy full execution log output"
+                              >
+                                {copiedInstallLogs ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Copy Logs</span>
+                                  </>
+                                )}
+                              </button>
+                              <span className={`font-mono font-semibold ${installStatus === "error" ? "text-rose-500" : "text-emerald-500"}`}>
+                                {installStatus === "error" ? "Execution Interrupted" : "Stream Active"}
+                              </span>
+                            </div>
                           </div>
                           <div className="p-4 rounded-2xl bg-slate-950 text-slate-200 font-mono text-[11px] h-60 overflow-y-auto space-y-1 border border-slate-800 shadow-inner">
                             {installLogs.map((log, idx) => (
