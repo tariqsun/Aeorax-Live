@@ -54,6 +54,7 @@ interface NodeData {
   meetings: number;
   participants: number;
   webcams: number;
+  bbbVersion?: string;
 }
 
 interface CollegeData {
@@ -439,9 +440,111 @@ export default function AeoraxDashboard() {
     }
   };
 
+  // BigBlueButton Official GitHub Release State
+  const [latestRelease, setLatestRelease] = useState<{
+    version: string;
+    name: string;
+    publishedAt: string;
+    releaseUrl: string;
+    changelogSummary: string;
+    isMajor: boolean;
+  } | null>(null);
+
+  // Upgrade Modal & Stream State
+  const [upgradingNode, setUpgradingNode] = useState<NodeData | null>(null);
+  const [upgradeSshPassword, setUpgradeSshPassword] = useState<string>("");
+  const [upgradeLogs, setUpgradeLogs] = useState<string[]>([]);
+  const [upgradeProgress, setUpgradeProgress] = useState<number>(0);
+  const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "running" | "completed" | "error">("idle");
+  const [upgradeStepTitle, setUpgradeStepTitle] = useState<string>("Initializing...");
+
+  const fetchLatestRelease = async () => {
+    try {
+      const res = await fetch("/api/nodes/version-check");
+      const json = await res.json();
+      if (json.success && json.latestRelease) {
+        setLatestRelease(json.latestRelease);
+      }
+    } catch (e) {
+      console.error("Failed to check BBB latest release:", e);
+    }
+  };
+
   useEffect(() => {
     refreshNodes();
+    fetchLatestRelease();
   }, []);
+
+  const handleStartNodeUpgrade = (node: NodeData) => {
+    setUpgradingNode(node);
+    setUpgradeSshPassword("");
+    setUpgradeLogs([]);
+    setUpgradeProgress(0);
+    setUpgradeStatus("idle");
+    setUpgradeStepTitle("Ready for Upgrade");
+  };
+
+  const handleExecuteUpgradeStream = () => {
+    if (!upgradingNode) return;
+    setUpgradeStatus("running");
+    setUpgradeProgress(15);
+    setUpgradeStepTitle("Connecting via SSH & Draining Node...");
+    setUpgradeLogs([`[${new Date().toLocaleTimeString()}] Triggering zero-downtime maintenance upgrade for ${upgradingNode.fqdn}...`]);
+
+    const params = new URLSearchParams({
+      fqdn: upgradingNode.fqdn,
+      ip: upgradingNode.ip,
+      sshPassword: upgradeSshPassword,
+      adminEmail: "admin@nesthost.net",
+    });
+
+    const eventSource = new EventSource(`/api/nodes/upgrade-stream?${params.toString()}`);
+
+    eventSource.addEventListener("log", (e) => {
+      try {
+        const text = JSON.parse(e.data);
+        setUpgradeLogs((prev) => [...prev, text]);
+
+        if (text.includes("Updating repository")) {
+          setUpgradeProgress(35);
+          setUpgradeStepTitle("Updating package repositories...");
+        } else if (text.includes("Upgrading BigBlueButton")) {
+          setUpgradeProgress(60);
+          setUpgradeStepTitle("Upgrading BigBlueButton core and audio/video WebRTC services...");
+        } else if (text.includes("Verifying BigBlueButton status")) {
+          setUpgradeProgress(85);
+          setUpgradeStepTitle("Verifying configuration and health checks...");
+        }
+      } catch {
+        setUpgradeLogs((prev) => [...prev, e.data]);
+      }
+    });
+
+    eventSource.addEventListener("done", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        setUpgradeProgress(100);
+        setUpgradeStepTitle("Upgrade Completed Successfully!");
+        setUpgradeStatus("completed");
+        refreshNodes();
+      } catch {}
+      eventSource.close();
+    });
+
+    eventSource.addEventListener("error", (e: any) => {
+      let errMsg = "Upgrade interrupted or SSH authentication failed.";
+      try {
+        if (e.data) {
+          const parsed = JSON.parse(e.data);
+          errMsg = parsed.message || parsed;
+        }
+      } catch {}
+      setUpgradeLogs((prev) => [...prev, `[ERROR] ${errMsg}`]);
+      setUpgradeStepTitle("Upgrade Failed");
+      setUpgradeStatus("error");
+      eventSource.close();
+    });
+  };
 
 
   const colleges: CollegeData[] = [
@@ -1378,6 +1481,48 @@ export default function AeoraxDashboard() {
                 </div>
               </div>
 
+              {/* GITHUB BIGBLUEBUTTON OFFICIAL RELEASE & VERSION TRACKER */}
+              <div className="p-4 rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/20 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                        Official BigBlueButton GitHub Channel:
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                        {latestRelease ? `v${latestRelease.version} Stable` : "Checking Releases..."}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      {latestRelease?.changelogSummary || "Tracking official GitHub releases for upstream security, WebRTC, and classroom updates."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={latestRelease?.releaseUrl || "https://github.com/bigbluebutton/bigbluebutton/releases"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-900 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-50 transition"
+                  >
+                    <span>View GitHub Release Notes</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+
+                  <button
+                    onClick={fetchLatestRelease}
+                    className="p-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 transition"
+                    title="Refresh Latest Version Check"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
               {/* 1-CLICK UBUNTU VPS AUTO-INSTALLER & MONITORING AGENT CARD */}
               <div className="glass-card p-5.5 rounded-3xl border border-purple-200/80 dark:border-purple-900/50 bg-gradient-to-br from-purple-500/5 via-slate-50/50 to-indigo-500/5 dark:from-purple-950/20 dark:via-slate-900/60 dark:to-indigo-950/20 shadow-sm space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1484,6 +1629,7 @@ export default function AeoraxDashboard() {
                       <th className="py-4 px-5">Server / FQDN</th>
                       <th className="py-4 px-5">IP Address</th>
                       <th className="py-4 px-5">Status</th>
+                      <th className="py-4 px-5">BBB Version</th>
                       <th className="py-4 px-5">CPU</th>
                       <th className="py-4 px-5">RAM Memory</th>
                       <th className="py-4 px-5">NVMe Disk</th>
@@ -1492,51 +1638,227 @@ export default function AeoraxDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                    {nodes.map((node) => (
-                      <tr key={node.id} className="hover:bg-blue-50/40 transition">
-                        <td className="py-4 px-5">
-                          <div className="font-bold text-slate-900 dark:text-white">{node.name}</div>
-                          <div className="text-xs text-slate-500 font-mono mt-0.5">{node.fqdn}</div>
-                        </td>
-                        <td className="py-4 px-5 font-mono text-xs text-slate-600 dark:text-slate-400">
-                          {node.ip}
-                        </td>
-                        <td className="py-4 px-5">
-                          <span
-                            className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
-                              node.status === "READY"
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                : "bg-amber-100 text-amber-800 border border-amber-300"
-                            }`}
-                          >
-                            {node.status}
-                          </span>
-                        </td>
-                        <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">{node.cpu}%</td>
-                        <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
-                          {node.ramUsedGb}/{node.ramTotalGb} GB
-                        </td>
-                        <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
-                          {node.diskUsedGb}/{node.diskTotalGb} GB
-                        </td>
-                        <td className="py-4 px-5 font-bold text-slate-900 dark:text-white">{node.meetings} Rooms</td>
-                        <td className="py-4 px-5 text-right">
-                          <button
-                            onClick={() => toggleDrain(node.id)}
-                            className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition ${
-                              node.status === "READY"
-                                ? "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
-                                : "border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
-                            }`}
-                          >
-                            {node.status === "READY" ? "Drain" : "Enable"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {nodes.map((node) => {
+                      const currentVer = node.bbbVersion || "4.0.0";
+                      const isUpToDate = latestRelease ? currentVer.replace(/^v/, "") === latestRelease.version.replace(/^v/, "") : true;
+
+                      return (
+                        <tr key={node.id} className="hover:bg-blue-50/40 transition">
+                          <td className="py-4 px-5">
+                            <div className="font-bold text-slate-900 dark:text-white">{node.name}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-0.5">{node.fqdn}</div>
+                          </td>
+                          <td className="py-4 px-5 font-mono text-xs text-slate-600 dark:text-slate-400">
+                            {node.ip}
+                          </td>
+                          <td className="py-4 px-5">
+                            <span
+                              className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                                node.status === "READY"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                  : "bg-amber-100 text-amber-800 border border-amber-300"
+                              }`}
+                            >
+                              {node.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-5">
+                            <div className="flex items-center space-x-1.5">
+                              <span className="font-mono text-xs font-bold text-slate-900 dark:text-white">
+                                v{currentVer.replace(/^v/, "")}
+                              </span>
+                              {!isUpToDate && latestRelease && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 animate-pulse">
+                                  Update v{latestRelease.version} Available
+                                </span>
+                              )}
+                              {isUpToDate && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200">
+                                  Latest
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">{node.cpu}%</td>
+                          <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
+                            {node.ramUsedGb}/{node.ramTotalGb} GB
+                          </td>
+                          <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
+                            {node.diskUsedGb}/{node.diskTotalGb} GB
+                          </td>
+                          <td className="py-4 px-5 font-bold text-slate-900 dark:text-white">{node.meetings} Rooms</td>
+                          <td className="py-4 px-5 text-right space-x-2">
+                            {!isUpToDate && (
+                              <button
+                                onClick={() => handleStartNodeUpgrade(node)}
+                                className="text-xs px-3 py-1.5 rounded-xl border font-bold border-purple-300 text-purple-800 bg-purple-50 hover:bg-purple-100 transition shadow-xs"
+                                title="Safely drain node and upgrade to latest BigBlueButton"
+                              >
+                                ⚡ Upgrade
+                              </button>
+                            )}
+                            <button
+                              onClick={() => toggleDrain(node.id)}
+                              className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition ${
+                                node.status === "READY"
+                                  ? "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+                                  : "border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+                              }`}
+                            >
+                              {node.status === "READY" ? "Drain" : "Enable"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+
+              {/* ZERO-DOWNTIME NODE UPGRADE MODAL */}
+              {upgradingNode && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-md animate-fadeIn">
+                  <div className="glass-card max-w-2xl w-full p-6 rounded-3xl space-y-5 bg-white dark:bg-[#0c101a] border border-slate-200 dark:border-slate-800 shadow-2xl">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600">
+                          <RefreshCw className={`w-5 h-5 ${upgradeStatus === "running" ? "animate-spin" : ""}`} />
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-slate-900 dark:text-white text-base">
+                            Zero-Downtime BigBlueButton Node Upgrade
+                          </h4>
+                          <p className="text-xs text-slate-500 font-mono">
+                            {upgradingNode.name} • {upgradingNode.fqdn} ({upgradingNode.ip})
+                          </p>
+                        </div>
+                      </div>
+                      {upgradeStatus !== "running" && (
+                        <button
+                          onClick={() => setUpgradingNode(null)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {upgradeStatus === "idle" && (
+                      <div className="space-y-4">
+                        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-xs text-amber-900 dark:text-amber-300 space-y-2">
+                          <div className="font-black flex items-center space-x-1.5">
+                            <ShieldCheck className="w-4 h-4 text-amber-600" />
+                            <span>Zero-Downtime Safe Upgrade Protocol</span>
+                          </div>
+                          <p className="leading-relaxed">
+                            1. The node will be marked as <strong>DRAIN</strong> in Scalelite so no new students/rooms enter.<br />
+                            2. Packages for BigBlueButton v{latestRelease?.version || "4.0.0"} will be pulled directly from GitHub & Ubuntu mirrors.<br />
+                            3. Nginx, WebRTC SFU, and Learning Dashboard services will be safely upgraded and restarted.<br />
+                            4. Traffic routing will automatically resume to <strong>READY</strong> once health checks pass.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            Root SSH Password for {upgradingNode.ip}
+                          </label>
+                          <input
+                            type="password"
+                            value={upgradeSshPassword}
+                            onChange={(e) => setUpgradeSshPassword(e.target.value)}
+                            placeholder="Enter root password to execute remote upgrade"
+                            className="w-full mt-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => setUpgradingNode(null)}
+                            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleExecuteUpgradeStream}
+                            className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-md shadow-purple-500/25 flex items-center space-x-2"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            <span>Start Node Upgrade to v{latestRelease?.version || "4.0.0"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {(upgradeStatus === "running" || upgradeStatus === "completed" || upgradeStatus === "error") && (
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
+                              <RefreshCw className={`w-4 h-4 text-purple-600 ${upgradeStatus === "running" ? "animate-spin" : ""}`} />
+                              <span>{upgradeStepTitle}</span>
+                            </span>
+                            <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">
+                              {upgradeProgress}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-800">
+                            <div
+                              className={`h-full transition-all duration-500 rounded-full ${
+                                upgradeStatus === "error"
+                                  ? "bg-rose-500"
+                                  : "bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-500"
+                              }`}
+                              style={{ width: `${upgradeProgress}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                            <span className="flex items-center space-x-1.5">
+                              <Terminal className="w-3.5 h-3.5" />
+                              <span>Upgrade Execution Output</span>
+                            </span>
+                            <span className={`font-mono ${upgradeStatus === "error" ? "text-rose-500" : "text-emerald-500"}`}>
+                              {upgradeStatus === "completed" ? "Done" : upgradeStatus === "error" ? "Halted" : "Live Stream"}
+                            </span>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-slate-950 text-slate-200 font-mono text-[11px] h-64 overflow-y-auto space-y-1 border border-slate-800 shadow-inner">
+                            {upgradeLogs.map((log, idx) => (
+                              <div
+                                key={idx}
+                                className={`leading-relaxed ${
+                                  log.includes("Completed") || log.includes("READY") || log.includes("100%")
+                                    ? "text-emerald-400 font-bold"
+                                    : log.includes("ERROR") || log.includes("Failed")
+                                    ? "text-rose-400 font-bold"
+                                    : "text-slate-300"
+                                }`}
+                              >
+                                {log}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setUpgradingNode(null)}
+                            disabled={upgradeStatus === "running"}
+                            className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-purple-600 dark:hover:bg-purple-700 text-white text-xs font-bold transition disabled:opacity-40"
+                          >
+                            Close Upgrade Modal
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* MANUAL NODE REGISTRATION MODAL */}
               {isAddNodeModalOpen && (

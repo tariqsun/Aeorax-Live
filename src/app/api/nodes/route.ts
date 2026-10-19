@@ -30,6 +30,7 @@ export async function GET() {
       meetings: n.activeMeetingsCount || 0,
       participants: n.activeParticipantsCount || 0,
       webcams: 0,
+      bbbVersion: n.bbbVersion || "4.0.0",
       scaleliteRegistered: n.scaleliteRegistered,
       createdAt: n.createdAt,
     }));
