@@ -23,20 +23,34 @@ export async function GET() {
       "https://bbb.nesthost.net/bigbluebutton/api";
 
     const defaultSecret =
-      process.env.SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026";
+      process.env.SCALELITE_SHARED_SECRET && process.env.SCALELITE_SHARED_SECRET !== "aeorax_scalelite_master_secret_2026"
+        ? process.env.SCALELITE_SHARED_SECRET
+        : "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
 
-    const nodes = await prisma.node.findMany({
+    const dbNodes = await prisma.node.findMany({
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        fqdn: true,
-        ipAddress: true,
-        status: true,
-        bbbVersion: true,
-        cpuUsagePercent: true,
-        activeMeetingsCount: true,
-      },
+    });
+
+    const nodes = dbNodes.map((n) => {
+      let sec = (n as any).sharedSecret;
+      if (!sec) {
+        if (n.fqdn?.includes("node2") || n.ipAddress === "13.140.140.237") {
+          sec = "rxHrPQPEvbFtovVJqnQaCyGsLcyzAtMku9XBqmtIY";
+        } else if (n.fqdn?.includes("node1") || n.ipAddress === "13.140.140.224") {
+          sec = "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
+        }
+      }
+      return {
+        id: n.id,
+        name: n.name,
+        fqdn: n.fqdn,
+        ipAddress: n.ipAddress,
+        status: n.status,
+        bbbVersion: n.bbbVersion,
+        sharedSecret: sec || defaultSecret,
+        cpuUsagePercent: n.cpuUsagePercent,
+        activeMeetingsCount: n.activeMeetingsCount,
+      };
     });
 
     const colleges = await prisma.college.findMany({
@@ -82,16 +96,40 @@ export async function POST(req: NextRequest) {
       "https://bbb.nesthost.net/bigbluebutton/api";
 
     const defaultSecret =
-      process.env.SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026";
+      process.env.SCALELITE_SHARED_SECRET && process.env.SCALELITE_SHARED_SECRET !== "aeorax_scalelite_master_secret_2026"
+        ? process.env.SCALELITE_SHARED_SECRET
+        : "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
 
     // Determine target API URL and secret
     let targetApiUrl = body.targetApiUrl || defaultScaleliteUrl;
-    let targetSecret = body.targetSecret || defaultSecret;
+    let targetSecret = body.targetSecret;
 
     // Normalise base url (strip trailing slashes)
     targetApiUrl = targetApiUrl.replace(/\/+$/, "");
     if (!targetApiUrl.endsWith("/bigbluebutton/api")) {
       targetApiUrl = `${targetApiUrl}/bigbluebutton/api`;
+    }
+
+    // Auto-resolve exact secret if not provided or set to legacy default
+    if (!targetSecret || targetSecret === "aeorax_scalelite_master_secret_2026") {
+      const cleanUrl = targetApiUrl.toLowerCase();
+      if (cleanUrl.includes("node2") || cleanUrl.includes("13.140.140.237")) {
+        targetSecret = "rxHrPQPEvbFtovVJqnQaCyGsLcyzAtMku9XBqmtIY";
+      } else if (cleanUrl.includes("node1") || cleanUrl.includes("13.140.140.224") || cleanUrl.includes("bbb.nesthost.net")) {
+        targetSecret = "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
+      } else {
+        try {
+          const parsedHost = new URL(targetApiUrl).hostname;
+          const dbNode = await prisma.node.findFirst({
+            where: {
+              OR: [{ fqdn: parsedHost }, { ipAddress: parsedHost }],
+            },
+          });
+          targetSecret = dbNode?.sharedSecret || defaultSecret;
+        } catch {
+          targetSecret = defaultSecret;
+        }
+      }
     }
 
     // 1. ACTION: CREATE DIRECT TEST MEETING

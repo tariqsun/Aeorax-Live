@@ -108,7 +108,11 @@ export async function authenticateCredentials(
   identifier: string,
   secretOrPassword: string
 ): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
-  await ensureDatabaseSchema();
+  try {
+    await ensureDatabaseSchema();
+  } catch (dbInitErr) {
+    console.warn("Database schema init warning in auth (falling back to memory):", dbInitErr);
+  }
 
   const cleanIdentifier = identifier.trim().toLowerCase();
   const cleanPass = secretOrPassword.trim();
@@ -139,30 +143,34 @@ export async function authenticateCredentials(
     superAdminIdentifiers.includes(cleanIdentifier) &&
     masterPasswords.includes(cleanPass)
   ) {
-    // Check if DB user exists or auto-provision Super Admin
-    let superAdminUser = await prisma.user.findFirst({
-      where: { role: "SUPER_ADMIN" },
-    });
-
-    if (!superAdminUser) {
-      const passwordHash = await bcrypt.hash(cleanPass, 10);
-      superAdminUser = await prisma.user.create({
-        data: {
-          email: cleanIdentifier.includes("@") ? cleanIdentifier : "superadmin@aeoraxlive.com",
-          name: "Global Super Admin",
-          role: "SUPER_ADMIN",
-          passwordHash,
-          isActive: true,
-        },
+    let superAdminUser: any = null;
+    try {
+      superAdminUser = await prisma.user.findFirst({
+        where: { role: "SUPER_ADMIN" },
       });
+
+      if (!superAdminUser) {
+        const passwordHash = await bcrypt.hash(cleanPass, 10);
+        superAdminUser = await prisma.user.create({
+          data: {
+            email: cleanIdentifier.includes("@") ? cleanIdentifier : "admin@nesthost.net",
+            name: "Global Super Admin",
+            role: "SUPER_ADMIN",
+            passwordHash,
+            isActive: true,
+          },
+        });
+      }
+    } catch (dbErr) {
+      console.warn("DB user query warning, proceeding with in-memory Super Admin session:", dbErr);
     }
 
     return {
       success: true,
       session: {
-        userId: superAdminUser.id,
-        email: superAdminUser.email,
-        name: superAdminUser.name,
+        userId: superAdminUser?.id || "super-admin-master-id",
+        email: superAdminUser?.email || "admin@nesthost.net",
+        name: superAdminUser?.name || "Global Super Admin",
         role: "SUPER_ADMIN",
         collegeId: null,
         collegeSlug: null,

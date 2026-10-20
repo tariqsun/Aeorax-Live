@@ -82,6 +82,17 @@ export async function GET() {
       if (!ver || ver === "3.0.39") {
         ver = "4.0.0";
       }
+
+      // Auto-resolve known cluster secret if not yet stored in DB
+      let effectiveSecret = (n as any).sharedSecret;
+      if (!effectiveSecret) {
+        if (n.fqdn?.includes("node2") || n.ipAddress === "13.140.140.237") {
+          effectiveSecret = "rxHrPQPEvbFtovVJqnQaCyGsLcyzAtMku9XBqmtIY";
+        } else if (n.fqdn?.includes("node1") || n.ipAddress === "13.140.140.224") {
+          effectiveSecret = "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
+        }
+      }
+
       return {
         id: n.id,
         name: n.name,
@@ -100,6 +111,7 @@ export async function GET() {
         participants: n.activeParticipantsCount || 0,
         webcams: 0,
         bbbVersion: ver,
+        sharedSecret: effectiveSecret || null,
         scaleliteRegistered: n.scaleliteRegistered,
         createdAt: n.createdAt,
       };
@@ -123,8 +135,19 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
+    await ensureDatabaseSchema();
     const body = await req.json();
-    const { name, fqdn, ip, bbbVersion = "4.0.0", ramTotalGb = 16, diskTotalGb = 100, cpuCores = 8 } = body;
+    const {
+      name,
+      fqdn,
+      ip,
+      bbbVersion = "4.0.0",
+      ramTotalGb = 16,
+      diskTotalGb = 100,
+      cpuCores = 8,
+      sharedSecret,
+      sshPassword,
+    } = body;
 
     if (!fqdn || !ip) {
       return NextResponse.json({ success: false, error: "FQDN and IP Address are required" }, { status: 400 });
@@ -142,6 +165,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Auto-resolve known secret if not provided
+    let finalSecret = sharedSecret;
+    if (!finalSecret) {
+      if (fqdn.includes("node2") || ip === "13.140.140.237") {
+        finalSecret = "rxHrPQPEvbFtovVJqnQaCyGsLcyzAtMku9XBqmtIY";
+      } else if (fqdn.includes("node1") || ip === "13.140.140.224") {
+        finalSecret = "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
+      }
+    }
+
     const node = await prisma.node.upsert({
       where: { fqdn },
       update: {
@@ -152,6 +185,8 @@ export async function POST(req: NextRequest) {
         diskGb: Number(diskTotalGb) || 100,
         cpuCores: Number(cpuCores) || 8,
         status: "READY",
+        ...(finalSecret ? { sharedSecret: finalSecret } : {}),
+        ...(sshPassword ? { sshPassword } : {}),
       },
       create: {
         poolId: defaultPool.id,
@@ -163,6 +198,8 @@ export async function POST(req: NextRequest) {
         diskGb: Number(diskTotalGb) || 100,
         cpuCores: Number(cpuCores) || 8,
         status: "READY",
+        ...(finalSecret ? { sharedSecret: finalSecret } : {}),
+        ...(sshPassword ? { sshPassword } : {}),
       },
     });
 

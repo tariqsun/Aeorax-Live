@@ -715,6 +715,43 @@ export default function AeoraxDashboard() {
     }
   };
 
+  const [isSyncingSecrets, setIsSyncingSecrets] = useState<boolean>(false);
+
+  const handleAutoSyncSecrets = async (targetIp?: string) => {
+    setIsSyncingSecrets(true);
+    try {
+      const res = await fetch("/api/nodes/sync-secret", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: targetIp ? "sync-one" : "sync-all",
+          ip: targetIp,
+          sshPassword: "3840320925613",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestLabToast({
+          type: "success",
+          message: data.message || "Cluster nodes synchronized via SSH! Verified BigBlueButton secrets & real telemetry loaded.",
+        });
+        await refreshNodes();
+      } else {
+        setTestLabToast({
+          type: "error",
+          message: data.error || "Failed to auto-sync secrets with nodes.",
+        });
+      }
+    } catch (err: any) {
+      setTestLabToast({
+        type: "error",
+        message: err.message || "Failed to trigger auto-sync.",
+      });
+    } finally {
+      setIsSyncingSecrets(false);
+    }
+  };
+
   // BigBlueButton Official GitHub Release State
   const [latestRelease, setLatestRelease] = useState<{
     version: string;
@@ -1332,15 +1369,20 @@ export default function AeoraxDashboard() {
 
       if (testTargetType === "SCALELITE") {
         targetApiUrl = process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api";
-        targetSecret = process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026";
+        const envSec = process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET;
+        targetSecret = envSec && envSec !== "aeorax_scalelite_master_secret_2026" ? envSec : "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
         targetLabel = "Scalelite Cluster (Load Balanced)";
       } else if (testTargetType === "NODE") {
         targetApiUrl = `https://${testSelectedNodeFqdn}/bigbluebutton/api`;
-        targetSecret = process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026";
+        const matched = nodes.find((n) => n.fqdn === testSelectedNodeFqdn || (n as any).ip === testSelectedNodeFqdn);
+        targetSecret = (matched as any)?.sharedSecret ||
+          (testSelectedNodeFqdn.includes("node2")
+            ? "rxHrPQPEvbFtovVJqnQaCyGsLcyzAtMku9XBqmtIY"
+            : "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY");
         targetLabel = `Direct Node: ${testSelectedNodeFqdn}`;
       } else {
         targetApiUrl = testCustomApiUrl || "https://bbb.nesthost.net/bigbluebutton/api";
-        targetSecret = testCustomSecret || "aeorax_scalelite_master_secret_2026";
+        targetSecret = testCustomSecret || (targetApiUrl.includes("node2") ? "rxHrPQPEvbFtovVJqnQaCyGsLcyzAtMku9XBqmtIY" : "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY");
         targetLabel = `Custom Host: ${targetApiUrl}`;
       }
 
@@ -2757,6 +2799,16 @@ export default function AeoraxDashboard() {
                   </button>
 
                   <button
+                    onClick={() => handleAutoSyncSecrets()}
+                    disabled={isSyncingSecrets}
+                    className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition shadow-xs disabled:opacity-50"
+                    title="Connects to meeting servers via SSH, extracts bbb-conf --secret and hardware stats, and updates cluster database"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSecrets ? "animate-spin text-emerald-600" : "text-emerald-600"}`} />
+                    <span>{isSyncingSecrets ? "Syncing Secrets..." : "⚡ Auto-Sync Cluster via SSH"}</span>
+                  </button>
+
+                  <button
                     onClick={() => setIsAddNodeModalOpen(true)}
                     className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition"
                   >
@@ -2983,6 +3035,14 @@ export default function AeoraxDashboard() {
                               title="Directly test this BigBlueButton node without college or Moodle"
                             >
                               🧪 Test Node
+                            </button>
+                            <button
+                              onClick={() => handleAutoSyncSecrets(node.ip)}
+                              disabled={isSyncingSecrets}
+                              className="text-xs px-2.5 py-1.5 rounded-xl border font-bold border-purple-300 text-purple-800 bg-purple-50 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300 transition shadow-xs disabled:opacity-50"
+                              title="SSH into this server to sync BBB secret and real CPU/RAM specs"
+                            >
+                              🔄 Sync
                             </button>
                             {!isUpToDate && (
                               <button
@@ -3676,15 +3736,57 @@ export default function AeoraxDashboard() {
                             ← Back
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={handleStartInstallation}
-                            disabled={preflightData?.readyForInstall === false}
-                            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold transition shadow-lg shadow-purple-500/30 transform hover:scale-105 flex items-center space-x-2"
-                          >
-                            <Play className="w-4 h-4 fill-current" />
-                            <span>Start Installation & Telemetry Setup</span>
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setIsSyncingSecrets(true);
+                                try {
+                                  const res = await fetch("/api/nodes/sync-secret", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      ip: wizardData.ip,
+                                      fqdn: wizardData.fqdn,
+                                      sshPassword: wizardData.sshPassword || "3840320925613",
+                                      sshPort: wizardData.sshPort || 22,
+                                      sshUser: wizardData.sshUser || "root",
+                                      name: wizardData.name,
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                    setIsAddNodeModalOpen(false);
+                                    await refreshNodes();
+                                    setTestLabToast({
+                                      type: "success",
+                                      message: `Server ${wizardData.fqdn} imported & verified with live BigBlueButton secret!`,
+                                    });
+                                  } else {
+                                    alert(data.error || "Auto-import failed");
+                                  }
+                                } finally {
+                                  setIsSyncingSecrets(false);
+                                }
+                              }}
+                              disabled={isSyncingSecrets}
+                              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-md shadow-emerald-500/20 flex items-center space-x-1.5 disabled:opacity-50"
+                              title="If BigBlueButton is already running on this server, auto-extract secret without reinstalling"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              <span>{isSyncingSecrets ? "Connecting..." : "⚡ Auto-Import Existing BBB"}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleStartInstallation}
+                              disabled={preflightData?.readyForInstall === false}
+                              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold transition shadow-lg shadow-purple-500/30 transform hover:scale-105 flex items-center space-x-2"
+                            >
+                              <Play className="w-4 h-4 fill-current" />
+                              <span>Fresh Install BBB</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}

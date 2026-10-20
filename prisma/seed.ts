@@ -133,8 +133,8 @@ async function main() {
     data: {
       poolId: sharedPool.id,
       name: "BBB Node 01",
-      fqdn: "node1.aeoraxlive.com",
-      ipAddress: "198.51.100.11",
+      fqdn: "node1.nesthost.net",
+      ipAddress: "13.140.140.224",
       status: NodeStatus.READY,
       cpuCores: 8,
       ramGb: 16,
@@ -152,8 +152,8 @@ async function main() {
     data: {
       poolId: sharedPool.id,
       name: "BBB Node 02",
-      fqdn: "node2.aeoraxlive.com",
-      ipAddress: "198.51.100.12",
+      fqdn: "node2.nesthost.net",
+      ipAddress: "13.140.140.237",
       status: NodeStatus.READY,
       cpuCores: 8,
       ramGb: 16,

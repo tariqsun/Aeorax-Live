@@ -165,6 +165,8 @@ model Node {
   activeParticipantsCount Int         @default(0)
   cpuUsagePercent        Float        @default(0.0)
   lastHeartbeatAt        DateTime?
+  sharedSecret           String?
+  sshPassword            String?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 

@@ -26,6 +26,8 @@ export async function ensureDatabaseSchema() {
     await prisma.$executeRawUnsafe('ALTER TABLE "Node" ADD COLUMN IF NOT EXISTS "ramUsagePercent" DOUBLE PRECISION DEFAULT 0');
     await prisma.$executeRawUnsafe('ALTER TABLE "Node" ADD COLUMN IF NOT EXISTS "diskUsagePercent" DOUBLE PRECISION DEFAULT 0');
     await prisma.$executeRawUnsafe('ALTER TABLE "College" ADD COLUMN IF NOT EXISTS "plan" TEXT DEFAULT \'Standard College (8 Rooms)\'');
+    await prisma.$executeRawUnsafe('ALTER TABLE "Node" ADD COLUMN IF NOT EXISTS "sharedSecret" TEXT');
+    await prisma.$executeRawUnsafe('ALTER TABLE "Node" ADD COLUMN IF NOT EXISTS "sshPassword" TEXT');
     _schemaEnsured = true;
   } catch (err) {
     console.warn("Schema auto-heal warning:", err);
