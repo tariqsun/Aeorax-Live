@@ -45,6 +45,10 @@ import {
   Eye,
   EyeOff,
   User,
+  FlaskConical,
+  Radio,
+  Gauge,
+  PlayCircle,
 } from "lucide-react";
 
 interface AuthUser {
@@ -151,10 +155,53 @@ export default function AeoraxDashboard() {
   const [bbbMoveSuccessMsg, setBbbMoveSuccessMsg] = useState<string | null>(null);
 
   // Tab navigation
-  const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "colleges" | "moodle" | "recordings" | "advisor" | "branding">("overview");
+  const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "testlab" | "colleges" | "moodle" | "recordings" | "advisor" | "branding">("overview");
   const [clientTab, setClientTab] = useState<"rooms" | "teachers" | "recordings">("rooms");
   const [selectedMoodleCollegeSlug, setSelectedMoodleCollegeSlug] = useState<string>("oxford-intl");
   const [moodleTestResult, setMoodleTestResult] = useState<"idle" | "testing" | "success">("idle");
+
+  // Direct Server Benchmark & Direct Meeting Test Lab State
+  const [testTargetType, setTestTargetType] = useState<"SCALELITE" | "NODE" | "CUSTOM">("SCALELITE");
+  const [testSelectedNodeFqdn, setTestSelectedNodeFqdn] = useState<string>("node1.nesthost.net");
+  const [testCustomApiUrl, setTestCustomApiUrl] = useState<string>("");
+  const [testCustomSecret, setTestCustomSecret] = useState<string>("");
+  const [testMeetingName, setTestMeetingName] = useState<string>("Admin Cluster Benchmark Lab");
+  const [testMeetingID, setTestMeetingID] = useState<string>(() => `benchmark-${Math.random().toString(36).substring(2, 8)}`);
+  const [testModeratorName, setTestModeratorName] = useState<string>("Admin Tester");
+  const [testAttendeeName, setTestAttendeeName] = useState<string>("Student Load Tester");
+  const [testRecordEnabled, setTestRecordEnabled] = useState<boolean>(true);
+  const [testAutoStartRecord, setTestAutoStartRecord] = useState<boolean>(true);
+  const [testSelectedCollegeForR2, setTestSelectedCollegeForR2] = useState<string>("oxford-intl");
+  const [isCreatingTestMeeting, setIsCreatingTestMeeting] = useState<boolean>(false);
+  const [activeTestSession, setActiveTestSession] = useState<{
+    meetingID: string;
+    meetingName: string;
+    targetApiUrl: string;
+    targetSecret?: string;
+    moderatorJoinUrl: string;
+    attendeeJoinUrl: string;
+    attendeePW: string;
+    moderatorPW: string;
+    record: boolean;
+    targetLabel: string;
+    createdAt: string;
+  } | null>(null);
+  const [testTelemetry, setTestTelemetry] = useState<{
+    running: boolean;
+    participantCount: number;
+    listenerCount: number;
+    voiceParticipantCount: number;
+    videoCount: number;
+    recording: boolean;
+    duration: number;
+    hasUserJoined: boolean;
+    lastUpdated: string;
+  } | null>(null);
+  const [isFetchingTelemetry, setIsFetchingTelemetry] = useState<boolean>(false);
+  const [isEndingMeeting, setIsEndingMeeting] = useState<boolean>(false);
+  const [testLabToast, setTestLabToast] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
+  const [isTestingR2Sync, setIsTestingR2Sync] = useState<boolean>(false);
+  const [r2TestResult, setR2TestResult] = useState<any | null>(null);
 
   // Dynamic Classroom Branding & White-Label State
   const [selectedBrandingCollegeSlug, setSelectedBrandingCollegeSlug] = useState<string>("oxford-intl");
@@ -1273,6 +1320,198 @@ export default function AeoraxDashboard() {
     }
   };
 
+  // Direct Test Lab Actions
+  const handleCreateDirectMeeting = async () => {
+    setIsCreatingTestMeeting(true);
+    setTestLabToast(null);
+
+    try {
+      let targetApiUrl = "";
+      let targetSecret = "";
+      let targetLabel = "";
+
+      if (testTargetType === "SCALELITE") {
+        targetApiUrl = process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api";
+        targetSecret = process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026";
+        targetLabel = "Scalelite Cluster (Load Balanced)";
+      } else if (testTargetType === "NODE") {
+        targetApiUrl = `https://${testSelectedNodeFqdn}/bigbluebutton/api`;
+        targetSecret = process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026";
+        targetLabel = `Direct Node: ${testSelectedNodeFqdn}`;
+      } else {
+        targetApiUrl = testCustomApiUrl || "https://bbb.nesthost.net/bigbluebutton/api";
+        targetSecret = testCustomSecret || "aeorax_scalelite_master_secret_2026";
+        targetLabel = `Custom Host: ${targetApiUrl}`;
+      }
+
+      const res = await fetch("/api/admin/test-meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          targetApiUrl,
+          targetSecret,
+          meetingID: testMeetingID || `benchmark-${Date.now().toString(36)}`,
+          name: testMeetingName || "Admin Direct Cluster Benchmark",
+          attendeePW: "ap",
+          moderatorPW: "mp",
+          record: testRecordEnabled,
+          autoStartRecording: testAutoStartRecord,
+          moderatorName: testModeratorName || "Admin Tester",
+          attendeeName: testAttendeeName || "Student Load Tester",
+          collegeSlug: testSelectedCollegeForR2,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success || data.moderatorJoinUrl) {
+        const sessionObj = {
+          meetingID: data.meetingID,
+          meetingName: data.meetingName,
+          targetApiUrl: data.targetApiUrl,
+          targetSecret,
+          moderatorJoinUrl: data.moderatorJoinUrl,
+          attendeeJoinUrl: data.attendeeJoinUrl,
+          attendeePW: data.attendeePW || "ap",
+          moderatorPW: data.moderatorPW || "mp",
+          record: data.record,
+          targetLabel,
+          createdAt: new Date().toLocaleTimeString(),
+        };
+        setActiveTestSession(sessionObj);
+        setTestTelemetry({
+          running: true,
+          participantCount: 1,
+          listenerCount: 1,
+          voiceParticipantCount: 0,
+          videoCount: 0,
+          recording: data.record,
+          duration: 0,
+          hasUserJoined: true,
+          lastUpdated: new Date().toLocaleTimeString(),
+        });
+
+        setTestLabToast({
+          type: "success",
+          message: `Direct meeting initialized on ${targetLabel}! Opening moderator classroom in a new tab...`,
+        });
+
+        if (typeof window !== "undefined") {
+          window.open(data.moderatorJoinUrl, "_blank", "noopener,noreferrer");
+        }
+      } else {
+        setTestLabToast({
+          type: "error",
+          message: data.error || data.message || "Failed to initialize test meeting on target server.",
+        });
+      }
+    } catch (err: any) {
+      setTestLabToast({
+        type: "error",
+        message: err.message || "Network error communicating with test meeting gateway.",
+      });
+    } finally {
+      setIsCreatingTestMeeting(false);
+    }
+  };
+
+  const handleFetchTestTelemetry = async () => {
+    if (!activeTestSession) return;
+    setIsFetchingTelemetry(true);
+    try {
+      const res = await fetch("/api/admin/test-meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "info",
+          meetingID: activeTestSession.meetingID,
+          targetApiUrl: activeTestSession.targetApiUrl,
+          targetSecret: activeTestSession.targetSecret,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestTelemetry({
+          running: data.running,
+          participantCount: data.participantCount,
+          listenerCount: data.listenerCount,
+          voiceParticipantCount: data.voiceParticipantCount,
+          videoCount: data.videoCount,
+          recording: data.recording,
+          duration: data.duration,
+          hasUserJoined: data.hasUserJoined,
+          lastUpdated: new Date().toLocaleTimeString(),
+        });
+      } else {
+        setTestTelemetry((prev) => (prev ? { ...prev, running: false, lastUpdated: new Date().toLocaleTimeString() } : null));
+      }
+    } catch (err) {
+      console.warn("Telemetry fetch error:", err);
+    } finally {
+      setIsFetchingTelemetry(false);
+    }
+  };
+
+  const handleEndDirectMeeting = async () => {
+    if (!activeTestSession) return;
+    setIsEndingMeeting(true);
+    try {
+      const res = await fetch("/api/admin/test-meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "end",
+          meetingID: activeTestSession.meetingID,
+          moderatorPW: activeTestSession.moderatorPW,
+          targetApiUrl: activeTestSession.targetApiUrl,
+          targetSecret: activeTestSession.targetSecret,
+        }),
+      });
+      const data = await res.json();
+      setTestLabToast({
+        type: data.success ? "success" : "info",
+        message: data.message || "Meeting ended on BigBlueButton server. Post-publish recording processing started.",
+      });
+      setTestTelemetry((prev) => (prev ? { ...prev, running: false, lastUpdated: new Date().toLocaleTimeString() } : null));
+    } catch (err: any) {
+      setTestLabToast({ type: "error", message: err.message || "Error sending end meeting signal." });
+    } finally {
+      setIsEndingMeeting(false);
+    }
+  };
+
+  const handleTestR2SyncDirect = async () => {
+    setIsTestingR2Sync(true);
+    setR2TestResult(null);
+    try {
+      const res = await fetch("/api/admin/test-meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test-r2-sync",
+          collegeSlug: testSelectedCollegeForR2,
+          title: `Direct Benchmark Recording (${activeTestSession?.meetingName || "Server Lab"})`,
+          durationSeconds: testTelemetry?.duration ? testTelemetry.duration * 60 : 240,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setR2TestResult(data.recording);
+        setTestLabToast({
+          type: "success",
+          message: data.message || "Direct R2 storage move verified successfully!",
+        });
+        fetchR2Objects();
+      } else {
+        setTestLabToast({ type: "error", message: data.error || "R2 test sync failed." });
+      }
+    } catch (err: any) {
+      setTestLabToast({ type: "error", message: err.message || "Failed to trigger R2 sync test." });
+    } finally {
+      setIsTestingR2Sync(false);
+    }
+  };
+
   useEffect(() => {
     if (adminTab === "recordings" || clientTab === "recordings") {
       testR2LiveConnection();
@@ -2127,6 +2366,7 @@ export default function AeoraxDashboard() {
             {[
               { id: "overview", label: "Overview", icon: Activity },
               { id: "nodes", label: "BBB Meeting Nodes", icon: Server },
+              { id: "testlab", label: "Meeting Test Lab & Benchmark", icon: FlaskConical },
               { id: "colleges", label: "Colleges & Quotas", icon: GraduationCap },
               { id: "branding", label: "Classroom Branding & Theme", icon: Palette },
               { id: "moodle", label: "Moodle & LMS Gateway", icon: Lock },
@@ -2355,6 +2595,16 @@ export default function AeoraxDashboard() {
 
                   {/* Actions */}
                   <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setAdminTab("testlab");
+                        setTestTargetType("SCALELITE");
+                      }}
+                      className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition shadow-md shadow-blue-500/20"
+                    >
+                      <FlaskConical className="w-3.5 h-3.5" />
+                      <span>Launch Test Meeting</span>
+                    </button>
                     <button
                       onClick={triggerScalelitePoller}
                       disabled={isPolling}
@@ -2723,6 +2973,17 @@ export default function AeoraxDashboard() {
                           </td>
                           <td className="py-4 px-5 font-bold text-slate-900 dark:text-white">{node.meetings} Rooms</td>
                           <td className="py-4 px-5 text-right space-x-2">
+                            <button
+                              onClick={() => {
+                                setTestTargetType("NODE");
+                                setTestSelectedNodeFqdn(node.fqdn);
+                                setAdminTab("testlab");
+                              }}
+                              className="text-xs px-2.5 py-1.5 rounded-xl border font-bold border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 transition shadow-xs"
+                              title="Directly test this BigBlueButton node without college or Moodle"
+                            >
+                              🧪 Test Node
+                            </button>
                             {!isUpToDate && (
                               <button
                                 onClick={() => handleStartNodeUpgrade(node)}
@@ -3606,6 +3867,528 @@ export default function AeoraxDashboard() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SUPER ADMIN TAB: MEETING TEST LAB & BENCHMARK */}
+          {adminTab === "testlab" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Header Card */}
+              <div className="glass-card p-6 rounded-3xl border border-blue-200/80 dark:border-blue-900/40 bg-gradient-to-r from-blue-50/60 via-indigo-50/40 to-purple-50/40 dark:from-blue-950/20 dark:via-slate-900/60 dark:to-purple-950/20 shadow-xs flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center space-x-3.5">
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25">
+                    <FlaskConical className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2.5">
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
+                        Direct Meeting Test Lab & Cluster Benchmark
+                      </h3>
+                      <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-bold border border-blue-300">
+                        Admin Direct Testing
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Directly benchmark BigBlueButton servers & test WebRTC/video streaming load and Cloudflare R2 recordings without needing a College or Moodle LMS.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setTestMeetingID(`benchmark-${Math.random().toString(36).substring(2, 8)}`);
+                      setTestLabToast(null);
+                    }}
+                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Generate New Room ID</span>
+                  </button>
+                </div>
+              </div>
+
+              {testLabToast && (
+                <div
+                  className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between border ${
+                    testLabToast.type === "success"
+                      ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 text-emerald-800 dark:text-emerald-300"
+                      : "bg-rose-50 dark:bg-rose-950/30 border-rose-300 text-rose-800 dark:text-rose-300"
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    {testLabToast.type === "success" ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{testLabToast.message}</span>
+                  </div>
+                  <button onClick={() => setTestLabToast(null)} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Grid: Left: Configuration Form, Right: Target Architecture & Info */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* 1. Target Selector & Meeting Config (2 cols) */}
+                <div className="lg:col-span-2 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-6">
+                  {/* Step 1: Select Benchmark Target */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2.5 block">
+                      1. Select Target Endpoint (Where meeting will run)
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div
+                        onClick={() => setTestTargetType("SCALELITE")}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                          testTargetType === "SCALELITE"
+                            ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 shadow-sm ring-2 ring-blue-500/30"
+                            : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 mb-1.5">
+                          <Layers className={`w-4 h-4 ${testTargetType === "SCALELITE" ? "text-blue-600" : "text-slate-400"}`} />
+                          <span className="font-extrabold text-xs text-slate-900 dark:text-white">Scalelite Balancer</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                          Balanced across all healthy nodes automatically via least-loaded algorithm.
+                        </p>
+                        <span className="mt-2 inline-block font-mono text-[10px] text-blue-600 dark:text-blue-400 font-bold truncate max-w-full">
+                          bbb.nesthost.net
+                        </span>
+                      </div>
+
+                      <div
+                        onClick={() => setTestTargetType("NODE")}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                          testTargetType === "NODE"
+                            ? "border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 shadow-sm ring-2 ring-purple-500/30"
+                            : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 mb-1.5">
+                          <Server className={`w-4 h-4 ${testTargetType === "NODE" ? "text-purple-600" : "text-slate-400"}`} />
+                          <span className="font-extrabold text-xs text-slate-900 dark:text-white">Direct Node VPS</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                          Bypass balancer to test a single node's audio/video daemon & CPU directly.
+                        </p>
+                        <span className="mt-2 inline-block font-mono text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                          Isolated Single Node
+                        </span>
+                      </div>
+
+                      <div
+                        onClick={() => setTestTargetType("CUSTOM")}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                          testTargetType === "CUSTOM"
+                            ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 shadow-sm ring-2 ring-emerald-500/30"
+                            : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 mb-1.5">
+                          <Globe className={`w-4 h-4 ${testTargetType === "CUSTOM" ? "text-emerald-600" : "text-slate-400"}`} />
+                          <span className="font-extrabold text-xs text-slate-900 dark:text-white">Custom Server</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                          Specify external BBB server URL & secret for benchmark diagnostics.
+                        </p>
+                        <span className="mt-2 inline-block font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                          Custom Endpoint
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Specific Node Selector if NODE is chosen */}
+                    {testTargetType === "NODE" && (
+                      <div className="mt-4 p-4 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 space-y-2">
+                        <label className="text-xs font-bold text-purple-900 dark:text-purple-300">
+                          Select Registered BigBlueButton Node:
+                        </label>
+                        <select
+                          value={testSelectedNodeFqdn}
+                          onChange={(e) => setTestSelectedNodeFqdn(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-purple-300 dark:border-purple-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          {nodes.map((node) => (
+                            <option key={node.id} value={node.fqdn}>
+                              {node.name} — {node.fqdn} ({node.ip}) [{node.status}]
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Custom endpoint inputs if CUSTOM is chosen */}
+                    {testTargetType === "CUSTOM" && (
+                      <div className="mt-4 p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 space-y-3">
+                        <div>
+                          <label className="text-xs font-bold text-emerald-900 dark:text-emerald-300">Custom BBB API Endpoint:</label>
+                          <input
+                            type="text"
+                            value={testCustomApiUrl}
+                            onChange={(e) => setTestCustomApiUrl(e.target.value)}
+                            placeholder="https://bbb-node.example.com/bigbluebutton/api"
+                            className="w-full mt-1 px-3.5 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-emerald-900 dark:text-emerald-300">Custom Shared Secret (Salt):</label>
+                          <input
+                            type="password"
+                            value={testCustomSecret}
+                            onChange={(e) => setTestCustomSecret(e.target.value)}
+                            placeholder="bbb_secret_here"
+                            className="w-full mt-1 px-3.5 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 2: Meeting Parameters */}
+                  <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                      2. Benchmark Meeting Parameters
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meeting Room Title</label>
+                        <input
+                          type="text"
+                          value={testMeetingName}
+                          onChange={(e) => setTestMeetingName(e.target.value)}
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Meeting ID (Unique Salt)</label>
+                        <input
+                          type="text"
+                          value={testMeetingID}
+                          onChange={(e) => setTestMeetingID(e.target.value)}
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Moderator Full Name</label>
+                        <input
+                          type="text"
+                          value={testModeratorName}
+                          onChange={(e) => setTestModeratorName(e.target.value)}
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Default Student Tester Name</label>
+                        <input
+                          type="text"
+                          value={testAttendeeName}
+                          onChange={(e) => setTestAttendeeName(e.target.value)}
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Recording & R2 Options */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">Enable Session Recording</span>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Records session on BigBlueButton so you can test post-publish processing and R2 upload.
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={testRecordEnabled}
+                          onChange={(e) => setTestRecordEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </div>
+
+                      {testRecordEnabled && (
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                            Target College R2 Bucket Folder:
+                          </label>
+                          <select
+                            value={testSelectedCollegeForR2}
+                            onChange={(e) => setTestSelectedCollegeForR2(e.target.value)}
+                            className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-200"
+                          >
+                            {colleges.map((col) => (
+                              <option key={col.id} value={col.slug}>
+                                {col.name} ({col.slug})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Launch Action */}
+                    <div className="pt-2 flex items-center space-x-3">
+                      <button
+                        onClick={handleCreateDirectMeeting}
+                        disabled={isCreatingTestMeeting}
+                        className="flex-1 flex items-center justify-center space-x-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-60 text-white font-extrabold text-sm shadow-lg shadow-blue-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        <PlayCircle className="w-5 h-5" />
+                        <span>{isCreatingTestMeeting ? "Initializing BigBlueButton Session..." : "Launch Direct Test Meeting"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Instructions & R2 Direct Test */}
+                <div className="space-y-6">
+                  {/* How it works card */}
+                  <div className="glass-card p-5.5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 space-y-3.5">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-900/40">
+                        <Activity className="w-4 h-4" />
+                      </div>
+                      <h4 className="font-extrabold text-slate-900 dark:text-white text-xs">
+                        Diagnostics & Load Testing Guide
+                      </h4>
+                    </div>
+                    <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-2.5 leading-relaxed">
+                      <li className="flex items-start space-x-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                        <span><strong>Direct Testing:</strong> Clicking launch creates the room on BBB and immediately opens Moderator in a new tab.</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 shrink-0" />
+                        <span><strong>Multi-Device Load:</strong> Copy the Attendee Join URL and open it in multiple incognito tabs or other devices to benchmark concurrent audio/video.</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <span><strong>Recording Lifecycle:</strong> When you finish testing, click "End Meeting Session". BBB will conclude and process R2 upload.</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Direct R2 Pipeline Test Card */}
+                  <div className="glass-card p-5.5 rounded-3xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 space-y-3">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 rounded-xl bg-purple-600 text-white shadow-xs">
+                        <Video className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-slate-900 dark:text-white text-xs">
+                          Direct R2 Storage Simulation
+                        </h4>
+                        <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">Cloudflare R2 Multi-Tenant Test</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Instantly test moving a recording file into Cloudflare R2 under the selected college folder (<code>colleges/{testSelectedCollegeForR2}/recordings/</code>) to verify tenant isolation and playback link generation immediately without waiting.
+                    </p>
+                    <button
+                      onClick={handleTestR2SyncDirect}
+                      disabled={isTestingR2Sync}
+                      className="w-full flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-xs font-bold transition shadow-md shadow-purple-500/20"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      <span>{isTestingR2Sync ? "Verifying R2 Storage..." : "Test R2 Recording Move Now"}</span>
+                    </button>
+
+                    {r2TestResult && (
+                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-[11px] space-y-1">
+                        <span className="font-bold text-emerald-600 flex items-center space-x-1">
+                          <CheckCircle className="w-3.5 h-3.5 inline" />
+                          <span>R2 Ingest Verified:</span>
+                        </span>
+                        <div className="font-mono text-[10px] text-slate-500 truncate">
+                          {r2TestResult.r2Key}
+                        </div>
+                        <a
+                          href={r2TestResult.playableUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center space-x-1 text-purple-600 font-bold hover:underline"
+                        >
+                          <span>Open Playback URL</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. ACTIVE TEST MEETING TELEMETRY & LIVE CONTROLS CARD */}
+              {activeTestSession && (
+                <div className="glass-card p-6 rounded-3xl border border-emerald-300 dark:border-emerald-800 bg-gradient-to-r from-emerald-50/40 via-white to-blue-50/40 dark:from-emerald-950/20 dark:via-slate-900/60 dark:to-blue-950/20 shadow-md space-y-6">
+                  {/* Top Bar */}
+                  <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-3 rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-500/20">
+                        <Radio className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-black text-slate-900 dark:text-white text-sm">
+                            {activeTestSession.meetingName}
+                          </h4>
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border border-emerald-300 animate-pulse">
+                            ● ACTIVE LAB SESSION
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5 font-mono">
+                          ID: {activeTestSession.meetingID} • Target: {activeTestSession.targetLabel} • Created: {activeTestSession.createdAt}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={handleFetchTestTelemetry}
+                        disabled={isFetchingTelemetry}
+                        className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isFetchingTelemetry ? "animate-spin" : ""}`} />
+                        <span>Refresh Telemetry</span>
+                      </button>
+
+                      <button
+                        onClick={handleEndDirectMeeting}
+                        disabled={isEndingMeeting}
+                        className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white text-xs font-bold transition shadow-md shadow-rose-500/20"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>{isEndingMeeting ? "Ending..." : "End Meeting Session"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Telemetry Metrics Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Total Participants</span>
+                      <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                        {testTelemetry?.participantCount ?? 1}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Voice Listeners</span>
+                      <div className="text-xl font-black text-blue-600 mt-1">
+                        {testTelemetry?.listenerCount ?? 1}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Microphones / Speakers</span>
+                      <div className="text-xl font-black text-purple-600 mt-1">
+                        {testTelemetry?.voiceParticipantCount ?? 0}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Webcam Streams</span>
+                      <div className="text-xl font-black text-emerald-600 mt-1">
+                        {testTelemetry?.videoCount ?? 0}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Recording State</span>
+                      <div className="text-sm font-black mt-1.5 flex items-center space-x-1.5">
+                        {activeTestSession.record ? (
+                          <span className="text-rose-600 flex items-center space-x-1">
+                            <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+                            <span>RECORDING</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">DISABLED</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Duration</span>
+                      <div className="text-xl font-black text-indigo-600 mt-1">
+                        {testTelemetry?.duration ?? 0} min
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Join URLs Card */}
+                  <div className="space-y-3 pt-2">
+                    {/* Moderator Link */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+                          Moderator Classroom Join URL:
+                        </label>
+                        <span className="text-[11px] text-slate-500 font-medium">Full host & recording controls</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          readOnly
+                          value={activeTestSession.moderatorJoinUrl}
+                          className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
+                        />
+                        <button
+                          onClick={() => {
+                            copyToClipboard(activeTestSession.moderatorJoinUrl);
+                            setTestLabToast({ type: "success", message: "Moderator join URL copied to clipboard!" });
+                          }}
+                          className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => window.open(activeTestSession.moderatorJoinUrl, "_blank", "noopener,noreferrer")}
+                          className="px-3.5 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition"
+                        >
+                          Open
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Student Link */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                          Attendee / Student Join URL (Open in Incognito / Other Devices for Load Testing):
+                        </label>
+                        <span className="text-[11px] text-slate-500 font-medium">Simulate multiple students</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          readOnly
+                          value={activeTestSession.attendeeJoinUrl}
+                          className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
+                        />
+                        <button
+                          onClick={() => {
+                            copyToClipboard(activeTestSession.attendeeJoinUrl);
+                            setTestLabToast({ type: "success", message: "Student join URL copied to clipboard!" });
+                          }}
+                          className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => window.open(activeTestSession.attendeeJoinUrl, "_blank", "noopener,noreferrer")}
+                          className="px-3.5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
+                        >
+                          Open Student Tab
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
