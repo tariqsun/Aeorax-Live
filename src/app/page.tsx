@@ -351,12 +351,12 @@ export default function AeoraxDashboard() {
   const [nodeAddSuccessMsg, setNodeAddSuccessMsg] = useState<string | null>(null);
 
   // 1-Click Fresh VPS Installer Command State
-  const [quickInstallFqdn, setQuickInstallFqdn] = useState<string>("node1.aeoraxlive.com");
-  const [quickInstallEmail, setQuickInstallEmail] = useState<string>("admin@aeoraxlive.com");
+  const [quickInstallFqdn, setQuickInstallFqdn] = useState<string>("node1.nesthost.net");
+  const [quickInstallEmail, setQuickInstallEmail] = useState<string>("admin@nesthost.net");
   const [isCommandCopied, setIsCommandCopied] = useState<boolean>(false);
 
   const copyInstallerCommand = () => {
-    const cmd = `curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn ${quickInstallFqdn} --email ${quickInstallEmail} --panel https://master.nesthost.net`;
+    const cmd = `curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn ${quickInstallFqdn} --email ${quickInstallEmail} --panel https://panel.nesthost.net`;
     navigator.clipboard.writeText(cmd);
     setIsCommandCopied(true);
     setTimeout(() => setIsCommandCopied(false), 3000);
@@ -403,14 +403,14 @@ export default function AeoraxDashboard() {
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1);
   const [wizardData, setWizardData] = useState({
-    fqdn: "node2.aeoraxlive.com",
-    ip: "109.123.245.200",
+    fqdn: "node2.nesthost.net",
+    ip: "13.140.140.237",
     name: "BigBlueButton Node 02 (Dedicated)",
     sshPort: 22,
     sshUser: "root",
     sshPassword: "",
     sshKey: "",
-    adminEmail: "admin@aeoraxlive.com",
+    adminEmail: "admin@nesthost.net",
   });
   const [preflightStatus, setPreflightStatus] = useState<"idle" | "checking" | "success" | "error">("idle");
   const [preflightData, setPreflightData] = useState<any>(null);
@@ -612,8 +612,8 @@ export default function AeoraxDashboard() {
     {
       id: "node-1",
       name: "BBB Node 01",
-      fqdn: "node1.aeoraxlive.com",
-      ip: "198.51.100.11",
+      fqdn: "node1.nesthost.net",
+      ip: "13.140.140.224",
       status: "READY",
       cpu: 12,
       steal: 0,
@@ -631,8 +631,8 @@ export default function AeoraxDashboard() {
     {
       id: "node-2",
       name: "BigBlueButton Node 02 (Dedicated)",
-      fqdn: "node2.aeoraxlive.com",
-      ip: "109.123.245.200",
+      fqdn: "node2.nesthost.net",
+      ip: "13.140.140.237",
       status: "READY",
       cpu: 18,
       steal: 0,
@@ -1940,7 +1940,7 @@ export default function AeoraxDashboard() {
                                   {room.status === "RUNNING" ? "End Class" : "Start Class (BBB)"}
                                 </button>
                                 <button
-                                  onClick={() => copyToClipboard(`https://panel.aeoraxlive.com/join/${activeCollege.slug}/${room.slug}`)}
+                                  onClick={() => copyToClipboard(`https://panel.nesthost.net/join/${activeCollege.slug}/${room.slug}`)}
                                   className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 transition"
                                 >
                                   Copy Student Link
@@ -2083,7 +2083,7 @@ export default function AeoraxDashboard() {
                       const assigned = clientRooms.filter((r) => r.teacher === name).map((r) => r.name).join(", ");
                       return {
                         name,
-                        email: `${name.toLowerCase().replace(/[^a-z0-9]/g, "")}@${activeCollege.slug}.aeoraxlive.com`,
+                        email: `${name.toLowerCase().replace(/[^a-z0-9]/g, "")}@${activeCollege.slug}.nesthost.net`,
                         rooms: assigned || "General Faculty",
                       };
                     });
@@ -2348,7 +2348,7 @@ export default function AeoraxDashboard() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                        Load Balancer API: <code className="text-purple-600 dark:text-purple-400 font-bold font-mono">https://master.nesthost.net/bigbluebutton/api</code> • Secret: <code className="text-slate-600 dark:text-slate-400 font-mono">sample_scalelite_secret</code>
+                        Load Balancer API: <code className="text-purple-600 dark:text-purple-400 font-bold font-mono">{process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api"}</code> • Secret: <code className="text-slate-600 dark:text-slate-400 font-mono">{process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026"}</code>
                       </p>
                     </div>
                   </div>
@@ -2584,7 +2584,7 @@ export default function AeoraxDashboard() {
                     <div className="flex items-center space-x-2">
                       <input
                         type="text"
-                        placeholder="node1.aeoraxlive.com"
+                        placeholder="node1.nesthost.net"
                         value={quickInstallFqdn}
                         onChange={(e) => setQuickInstallFqdn(e.target.value)}
                         className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white w-48 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2592,7 +2592,7 @@ export default function AeoraxDashboard() {
                       />
                       <input
                         type="email"
-                        placeholder="admin@aeoraxlive.com"
+                        placeholder="admin@nesthost.net"
                         value={quickInstallEmail}
                         onChange={(e) => setQuickInstallEmail(e.target.value)}
                         className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white w-44 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -2622,7 +2622,7 @@ export default function AeoraxDashboard() {
                 <div className="relative group">
                   <pre className="p-3.5 rounded-2xl bg-slate-950 text-slate-200 font-mono text-xs overflow-x-auto border border-slate-800 shadow-inner flex items-center justify-between">
                     <code className="text-purple-300 selection:bg-purple-600 selection:text-white">
-                      curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn {quickInstallFqdn || "node1.aeoraxlive.com"} --email {quickInstallEmail || "admin@aeoraxlive.com"} --panel https://panel.nesthost.net
+                      curl -sSL https://raw.githubusercontent.com/tariqsun/Aeorax-Live/main/scripts/install-node.sh | sudo bash -s -- --fqdn {quickInstallFqdn || "node1.nesthost.net"} --email {quickInstallEmail || "admin@nesthost.net"} --panel https://panel.nesthost.net
                     </code>
                   </pre>
                 </div>
@@ -2950,7 +2950,7 @@ export default function AeoraxDashboard() {
                         <span>Cloudflare API Not Required</span>
                       </div>
                       <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                        In your DNS manager (Cloudflare, GoDaddy, Namecheap), add an <strong>A record</strong> pointing your subdomain (e.g. <code>node3.aeoraxlive.com</code>) to your server's public IP (Proxy OFF / Grey Cloud). Then run <code>bbb-conf --secret</code> on the server and enter details below.
+                        In your DNS manager (Cloudflare, GoDaddy, Namecheap), add an <strong>A record</strong> pointing your subdomain (e.g. <code>node3.nesthost.net</code>) to your server's public IP (Proxy OFF / Grey Cloud). Then run <code>bbb-conf --secret</code> on the server and enter details below.
                       </p>
                     </div>
 
@@ -2977,7 +2977,7 @@ export default function AeoraxDashboard() {
                           <input
                             type="text"
                             required
-                            placeholder="node3.aeoraxlive.com"
+                            placeholder="node3.nesthost.net"
                             value={nodeFormData.fqdn}
                             onChange={(e) => setNodeFormData({ ...nodeFormData, fqdn: e.target.value })}
                             className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -3181,7 +3181,7 @@ export default function AeoraxDashboard() {
                             In your DNS registrar (Cloudflare, GoDaddy, Namecheap, etc.), create an <strong>A Record</strong> pointing your chosen subdomain to your fresh VPS IP.
                           </p>
                           <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 font-mono text-[11px] text-purple-700 dark:text-purple-300 font-bold border border-blue-200/50">
-                            A Record: {wizardData.fqdn || "node1.aeoraxlive.com"} ➔ {wizardData.ip || "VPS_IP"} (DNS-Only / Grey Cloud)
+                            A Record: {wizardData.fqdn || "node1.nesthost.net"} ➔ {wizardData.ip || "VPS_IP"} (DNS-Only / Grey Cloud)
                           </div>
                         </div>
 
@@ -3207,7 +3207,7 @@ export default function AeoraxDashboard() {
                               type="text"
                               value={wizardData.fqdn}
                               onChange={(e) => setWizardData({ ...wizardData, fqdn: e.target.value })}
-                              placeholder="node2.aeoraxlive.com"
+                              placeholder="node2.nesthost.net"
                               className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                             />
                           </div>
@@ -3220,7 +3220,7 @@ export default function AeoraxDashboard() {
                               type="text"
                               value={wizardData.ip}
                               onChange={(e) => setWizardData({ ...wizardData, ip: e.target.value })}
-                              placeholder="109.123.245.200"
+                              placeholder="13.140.140.237"
                               className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                             />
                           </div>
@@ -3233,7 +3233,7 @@ export default function AeoraxDashboard() {
                               type="email"
                               value={wizardData.adminEmail}
                               onChange={(e) => setWizardData({ ...wizardData, adminEmail: e.target.value })}
-                              placeholder="admin@aeoraxlive.com"
+                              placeholder="admin@nesthost.net"
                               className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                             />
                           </div>
@@ -3976,11 +3976,11 @@ export default function AeoraxDashboard() {
                             <div className="flex items-center space-x-2 mt-1">
                               <input
                                 readOnly
-                                value="https://bbb.aeoraxlive.com/bigbluebutton/api"
+                                value={process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api"}
                                 className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
                               />
                               <button
-                                onClick={() => copyToClipboard("https://bbb.aeoraxlive.com/bigbluebutton/api")}
+                                onClick={() => copyToClipboard(process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api")}
                                 className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
                               >
                                 Copy
@@ -5099,7 +5099,7 @@ export default function AeoraxDashboard() {
                             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                             <span className="text-slate-400 font-mono text-[10px] ml-2 truncate">
-                              https://node1.aeoraxlive.com/html5client/join
+                              https://node1.nesthost.net/html5client/join
                             </span>
                           </div>
                           <div className="flex items-center space-x-2">
