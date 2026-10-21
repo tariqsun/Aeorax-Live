@@ -395,6 +395,7 @@ export default function AeoraxDashboard() {
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
   const [isPolling, setIsPolling] = useState<boolean>(false);
   const [pollerSuccessToast, setPollerSuccessToast] = useState<boolean>(false);
+  const [lastPolledAt, setLastPolledAt] = useState<string>("");
 
   const triggerScalelitePoller = async () => {
     setIsPolling(true);
@@ -403,6 +404,7 @@ export default function AeoraxDashboard() {
       const json = await res.json();
       if (json.success && Array.isArray(json.nodes) && json.nodes.length > 0) {
         setNodes(json.nodes);
+        setLastPolledAt(new Date().toLocaleTimeString());
         setPollerSuccessToast(true);
         setTimeout(() => setPollerSuccessToast(false), 4000);
       }
@@ -738,6 +740,9 @@ export default function AeoraxDashboard() {
       const json = await res.json();
       if (json.success && Array.isArray(json.nodes) && json.nodes.length > 0) {
         setNodes(json.nodes);
+        if (pollLive) {
+          setLastPolledAt(new Date().toLocaleTimeString());
+        }
       }
     } catch (e) {
       console.error("Failed to load real nodes:", e);
@@ -826,10 +831,10 @@ export default function AeoraxDashboard() {
     refreshNodes(true);
     fetchLatestRelease();
 
-    // Auto-refresh live node stats every 45s in background
+    // Auto-refresh live node stats every 30s in background
     const interval = setInterval(() => {
       refreshNodes(true);
-    }, 45000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -2889,14 +2894,22 @@ export default function AeoraxDashboard() {
 
               {/* Dedicated Nodes Grid */}
               <div className="glass-card p-6 rounded-3xl space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Dedicated BigBlueButton Nodes</h3>
-                    <p className="text-xs text-slate-500 font-medium">Hardware Telemetry: CPU, RAM & NVMe Disk</p>
+                    <div className="flex items-center space-x-2.5">
+                      <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Dedicated BigBlueButton Nodes</h3>
+                      <span className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Live Auto-Sync (Every 30s)</span>
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Hardware Telemetry: Real-time CPU, RAM & NVMe Disk {lastPolledAt ? `• Last updated at ${lastPolledAt}` : "• Auto-refreshes every 30s"}
+                    </p>
                   </div>
                   <button
                     onClick={() => setAdminTab("nodes")}
-                    className="text-xs text-blue-600 font-bold flex items-center space-x-1"
+                    className="text-xs text-blue-600 font-bold flex items-center space-x-1 self-start sm:self-auto"
                   >
                     <span>Manage Fleet</span>
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -2920,7 +2933,14 @@ export default function AeoraxDashboard() {
                               {node.status}
                             </span>
                           </div>
-                          <div className="text-xs text-slate-500 font-mono mt-1">{node.fqdn}</div>
+                          <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 font-mono mt-1.5">
+                            <span>{node.fqdn}</span>
+                            <span className="text-slate-300 dark:text-slate-700">•</span>
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold text-[11px]">
+                              <span className="text-[10px] font-medium text-slate-400">IP:</span>
+                              <span>{node.ip || "13.140.140.224"}</span>
+                            </span>
+                          </div>
                         </div>
                         <button
                           onClick={() => toggleDrain(node.id)}
