@@ -396,13 +396,21 @@ export default function AeoraxDashboard() {
   const [isPolling, setIsPolling] = useState<boolean>(false);
   const [pollerSuccessToast, setPollerSuccessToast] = useState<boolean>(false);
 
-  const triggerScalelitePoller = () => {
+  const triggerScalelitePoller = async () => {
     setIsPolling(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/nodes/poll", { method: "POST" });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.nodes) && json.nodes.length > 0) {
+        setNodes(json.nodes);
+        setPollerSuccessToast(true);
+        setTimeout(() => setPollerSuccessToast(false), 4000);
+      }
+    } catch (e) {
+      console.error("Failed to poll live node telemetry:", e);
+    } finally {
       setIsPolling(false);
-      setPollerSuccessToast(true);
-      setTimeout(() => setPollerSuccessToast(false), 3000);
-    }, 800);
+    }
   };
 
   // Manual Node Registration State
@@ -721,11 +729,12 @@ export default function AeoraxDashboard() {
   const [nodes, setNodes] = useState<NodeData[]>(defaultInitialNodes);
   const [isLoadingNodes, setIsLoadingNodes] = useState<boolean>(true);
 
-  // Fetch real nodes from database
-  const refreshNodes = async () => {
+  // Fetch real nodes from database and sync live telemetry
+  const refreshNodes = async (pollLive: boolean = false) => {
     try {
       setIsLoadingNodes(true);
-      const res = await fetch("/api/nodes");
+      const url = pollLive ? "/api/nodes/poll" : "/api/nodes";
+      const res = await fetch(url);
       const json = await res.json();
       if (json.success && Array.isArray(json.nodes) && json.nodes.length > 0) {
         setNodes(json.nodes);
@@ -814,8 +823,15 @@ export default function AeoraxDashboard() {
   };
 
   useEffect(() => {
-    refreshNodes();
+    refreshNodes(true);
     fetchLatestRelease();
+
+    // Auto-refresh live node stats every 45s in background
+    const interval = setInterval(() => {
+      refreshNodes(true);
+    }, 45000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleStartNodeUpgrade = (node: NodeData) => {
@@ -2839,7 +2855,7 @@ export default function AeoraxDashboard() {
                 {pollerSuccessToast && (
                   <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Load Balancer Poller triggered: Successfully synchronized meeting states across 4 BigBlueButton nodes!</span>
+                    <span>Load Balancer Poller: Successfully synchronized live telemetry & meeting states across {nodes.length} BigBlueButton nodes!</span>
                   </div>
                 )}
 
