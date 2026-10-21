@@ -49,6 +49,8 @@ import {
   Radio,
   Gauge,
   PlayCircle,
+  Share2,
+  UserPlus,
 } from "lucide-react";
 
 interface AuthUser {
@@ -172,6 +174,11 @@ export default function AeoraxDashboard() {
   const [testRecordEnabled, setTestRecordEnabled] = useState<boolean>(true);
   const [testAutoStartRecord, setTestAutoStartRecord] = useState<boolean>(true);
   const [testSelectedCollegeForR2, setTestSelectedCollegeForR2] = useState<string>("oxford-intl");
+  const [testAutoOpenTab, setTestAutoOpenTab] = useState<boolean>(true);
+  const [customInviteName, setCustomInviteName] = useState<string>("");
+  const [customInviteRole, setCustomInviteRole] = useState<"attendee" | "moderator">("attendee");
+  const [generatedCustomJoinUrl, setGeneratedCustomJoinUrl] = useState<string | null>(null);
+  const [isGeneratingCustomUrl, setIsGeneratingCustomUrl] = useState<boolean>(false);
   const [isCreatingTestMeeting, setIsCreatingTestMeeting] = useState<boolean>(false);
   const [activeTestSession, setActiveTestSession] = useState<{
     meetingID: string;
@@ -213,6 +220,7 @@ export default function AeoraxDashboard() {
     bannerText: string;
     welcomePdfUrl: string;
     customCss: string;
+    logoutUrl?: string;
   }>>({
     "default": {
       whiteLabelEnabled: false,
@@ -222,6 +230,7 @@ export default function AeoraxDashboard() {
       bannerText: "Welcome to Aeorax Live Virtual Classroom",
       welcomePdfUrl: "https://master.nesthost.net/slides/welcome.pdf",
       customCss: "",
+      logoutUrl: "https://panel.nesthost.net/session-ended",
     },
     "oxford-intl": {
       whiteLabelEnabled: true,
@@ -262,6 +271,19 @@ export default function AeoraxDashboard() {
   });
   const [brandingSaveToast, setBrandingSaveToast] = useState<boolean>(false);
   const [isSavingBranding, setIsSavingBranding] = useState<boolean>(false);
+
+  // Node Landing Page Deploy State (Zero-terminal branding)
+  const [selectedDeployNodeId, setSelectedDeployNodeId] = useState<string>("");
+  const [nodeLandingDeployPassword, setNodeLandingDeployPassword] = useState<string>("");
+  const [isDeployingNodeLanding, setIsDeployingNodeLanding] = useState<boolean>(false);
+  const [nodeLandingDeployMsg, setNodeLandingDeployMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Live Node Recordings Scanner State (Zero-terminal R2 sync)
+  const [scannedNodeFqdn, setScannedNodeFqdn] = useState<string>("node1.nesthost.net");
+  const [isScanningNodeRecordings, setIsScanningNodeRecordings] = useState<boolean>(false);
+  const [scannedNodeRecordings, setScannedNodeRecordings] = useState<any[]>([]);
+  const [scannedNodeMsg, setScannedNodeMsg] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
+  const [syncingRecordId, setSyncingRecordId] = useState<string | null>(null);
 
   // Check Active Session on Mount
   const checkAuthSession = async () => {
@@ -585,7 +607,7 @@ export default function AeoraxDashboard() {
           setInstallStepTitle("Compiling FreeSWITCH, WebRTC media & requesting Let's Encrypt SSL...");
         } else if (text.includes("Extracting BBB credentials")) {
           setInstallProgress(90);
-          setInstallStepTitle("Configuring Scalelite secret & API endpoints...");
+          setInstallStepTitle("Configuring Load Balancer secret & API endpoints...");
         }
       } catch {
         setInstallLogs((prev) => [...prev, e.data]);
@@ -1357,6 +1379,111 @@ export default function AeoraxDashboard() {
     }
   };
 
+  const handleDeployNodeLanding = async () => {
+    if (!selectedDeployNodeId) {
+      setNodeLandingDeployMsg({ type: "error", text: "Please select a BigBlueButton node." });
+      return;
+    }
+    if (!nodeLandingDeployPassword) {
+      setNodeLandingDeployMsg({ type: "error", text: "Please enter the root SSH password for the node." });
+      return;
+    }
+    setIsDeployingNodeLanding(true);
+    setNodeLandingDeployMsg(null);
+    try {
+      const activeBrand = brandingSettings["default"]?.brandName || "Aeorax Live";
+      const redirectUrl = brandingSettings["default"]?.logoutUrl || "https://panel.nesthost.net";
+      const targetNode = nodes.find((n) => n.id === selectedDeployNodeId);
+
+      const res = await fetch("/api/nodes/branding/deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nodeId: selectedDeployNodeId,
+          nodeFqdn: targetNode?.fqdn,
+          ipAddress: targetNode?.ip,
+          sshPassword: nodeLandingDeployPassword,
+          brandName: activeBrand,
+          redirectUrl,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNodeLandingDeployMsg({
+          type: "success",
+          text: `Landing page updated! ${targetNode?.fqdn || "Node"} now displays "${activeBrand}" and redirects automatically without touching terminal!`,
+        });
+      } else {
+        setNodeLandingDeployMsg({ type: "error", text: data.error || "Failed to update node landing page." });
+      }
+    } catch (err: any) {
+      setNodeLandingDeployMsg({ type: "error", text: err.message || "Network error deploying branding." });
+    } finally {
+      setIsDeployingNodeLanding(false);
+    }
+  };
+
+  const handleScanNodeRecordings = async () => {
+    setIsScanningNodeRecordings(true);
+    setScannedNodeMsg(null);
+    try {
+      const res = await fetch(`/api/nodes/recordings?nodeFqdn=${encodeURIComponent(scannedNodeFqdn)}`);
+      const data = await res.json();
+      if (data.success) {
+        setScannedNodeRecordings(data.recordings || []);
+        if ((data.recordings || []).length === 0) {
+          setScannedNodeMsg({
+            type: "info",
+            text: `No finished recordings found on ${scannedNodeFqdn}. If a meeting recently ended, BigBlueButton processing takes 2-5 minutes to complete.`,
+          });
+        } else {
+          setScannedNodeMsg({
+            type: "success",
+            text: `Found ${data.recordings.length} recording(s) on ${scannedNodeFqdn}! You can sync any of them to Cloudflare R2 below.`,
+          });
+        }
+      } else {
+        setScannedNodeRecordings([]);
+        setScannedNodeMsg({ type: "error", text: data.message || "Failed to scan node recordings." });
+      }
+    } catch (err: any) {
+      setScannedNodeRecordings([]);
+      setScannedNodeMsg({ type: "error", text: err.message || "Error communicating with BBB node." });
+    } finally {
+      setIsScanningNodeRecordings(false);
+    }
+  };
+
+  const handleSyncNodeRecordToR2 = async (rec: any) => {
+    setSyncingRecordId(rec.recordID);
+    try {
+      const res = await fetch("/api/nodes/recordings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recordID: rec.recordID,
+          meetingID: rec.meetingID,
+          collegeSlug: selectedR2CollegeFilter !== "ALL" ? selectedR2CollegeFilter : "oxford-intl",
+          title: rec.name || "Classroom Recording",
+          playbackUrl: rec.playbackUrl,
+          sizeBytes: rec.sizeBytes || 104857600,
+          durationMinutes: rec.durationMinutes || 60,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Success: ${data.message}`);
+        await fetchR2Objects();
+      } else {
+        alert(data.error || "Failed to sync recording to R2.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Error syncing recording.");
+    } finally {
+      setSyncingRecordId(null);
+    }
+  };
+
   // Direct Test Lab Actions
   const handleCreateDirectMeeting = async () => {
     setIsCreatingTestMeeting(true);
@@ -1371,7 +1498,7 @@ export default function AeoraxDashboard() {
         targetApiUrl = process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api";
         const envSec = process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET;
         targetSecret = envSec && envSec !== "aeorax_scalelite_master_secret_2026" ? envSec : "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY";
-        targetLabel = "Scalelite Cluster (Load Balanced)";
+        targetLabel = "Load Balancer Cluster";
       } else if (testTargetType === "NODE") {
         targetApiUrl = `https://${testSelectedNodeFqdn}/bigbluebutton/api`;
         const matched = nodes.find((n) => n.fqdn === testSelectedNodeFqdn || (n as any).ip === testSelectedNodeFqdn);
@@ -1433,13 +1560,25 @@ export default function AeoraxDashboard() {
           lastUpdated: new Date().toLocaleTimeString(),
         });
 
+        setGeneratedCustomJoinUrl(null);
+        setCustomInviteName("");
+
         setTestLabToast({
           type: "success",
-          message: `Direct meeting initialized on ${targetLabel}! Opening moderator classroom in a new tab...`,
+          message: testAutoOpenTab
+            ? `Direct meeting initialized on ${targetLabel}! Opening moderator classroom in a new tab...`
+            : `Direct meeting initialized on ${targetLabel}! Active session links are ready below.`,
         });
 
-        if (typeof window !== "undefined") {
+        if (testAutoOpenTab && typeof window !== "undefined") {
           window.open(data.moderatorJoinUrl, "_blank", "noopener,noreferrer");
+        }
+
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            const el = document.getElementById("active-test-session-card");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }, 200);
         }
       } else {
         setTestLabToast({
@@ -1454,6 +1593,45 @@ export default function AeoraxDashboard() {
       });
     } finally {
       setIsCreatingTestMeeting(false);
+    }
+  };
+
+  const handleGenerateCustomJoinUrl = async () => {
+    if (!activeTestSession) return;
+    if (!customInviteName.trim()) {
+      setTestLabToast({ type: "error", message: "Please enter a name for the participant first." });
+      return;
+    }
+    setIsGeneratingCustomUrl(true);
+    try {
+      const res = await fetch("/api/admin/test-meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate-join-url",
+          meetingID: activeTestSession.meetingID,
+          targetApiUrl: activeTestSession.targetApiUrl,
+          targetSecret: activeTestSession.targetSecret,
+          fullName: customInviteName.trim(),
+          role: customInviteRole,
+          moderatorPW: activeTestSession.moderatorPW,
+          attendeePW: activeTestSession.attendeePW,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.joinUrl) {
+        setGeneratedCustomJoinUrl(data.joinUrl);
+        setTestLabToast({
+          type: "success",
+          message: `Join link ready for "${customInviteName.trim()}"! Copy or share it below.`,
+        });
+      } else {
+        setTestLabToast({ type: "error", message: data.error || "Failed to generate custom join link" });
+      }
+    } catch (err: any) {
+      setTestLabToast({ type: "error", message: err.message || "Failed to generate link" });
+    } finally {
+      setIsGeneratingCustomUrl(false);
     }
   };
 
@@ -2519,7 +2697,7 @@ export default function AeoraxDashboard() {
                 {totalRooms}
               </div>
               <div className="text-xs font-bold text-amber-700 dark:text-amber-400 mt-2">
-                Distributed via Scalelite
+                Distributed via Load Balancer
               </div>
               <div className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-2.5 flex items-center space-x-1">
                 <span>Inspect Fleet Activity</span>
@@ -2613,7 +2791,7 @@ export default function AeoraxDashboard() {
                 </div>
               </div>
 
-              {/* Scalelite Load Balancer Controller & Live Stats */}
+              {/* Load Balancer Controller & Live Stats */}
               <div className="glass-card p-6 rounded-3xl space-y-5 border border-purple-200/90 dark:border-purple-800/40 bg-gradient-to-r from-purple-50/50 via-indigo-50/30 to-white dark:from-purple-950/20 dark:via-slate-900/60 dark:to-slate-900/60 shadow-xs">
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div className="flex items-center space-x-3.5">
@@ -2623,7 +2801,7 @@ export default function AeoraxDashboard() {
                     <div>
                       <div className="flex items-center space-x-2.5">
                         <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
-                          Scalelite Load Balancer Controller
+                          Load Balancer Controller
                         </h3>
                         <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300 font-bold border border-emerald-300">
                           v1.4.0 Connected
@@ -2661,7 +2839,7 @@ export default function AeoraxDashboard() {
                 {pollerSuccessToast && (
                   <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Scalelite Poller triggered: Successfully synchronized meeting states across 4 BigBlueButton nodes!</span>
+                    <span>Load Balancer Poller triggered: Successfully synchronized meeting states across 4 BigBlueButton nodes!</span>
                   </div>
                 )}
 
@@ -3107,7 +3285,7 @@ export default function AeoraxDashboard() {
                             <span>Zero-Downtime Safe Upgrade Protocol</span>
                           </div>
                           <p className="leading-relaxed">
-                            1. The node will be marked as <strong>DRAIN</strong> in Scalelite so no new students/rooms enter.<br />
+                            1. The node will be marked as <strong>DRAIN</strong> in Load Balancer so no new students/rooms enter.<br />
                             2. Packages for BigBlueButton v{latestRelease?.version || "4.0.0"} will be pulled directly from GitHub & Ubuntu mirrors.<br />
                             3. Nginx, WebRTC SFU, and Learning Dashboard services will be safely upgraded and restarted.<br />
                             4. Traffic routing will automatically resume to <strong>READY</strong> once health checks pass.
@@ -3252,7 +3430,7 @@ export default function AeoraxDashboard() {
                             Add BigBlueButton Node (Manual DNS)
                           </h4>
                           <p className="text-xs text-slate-500">
-                            Point your domain manually and register the server into Scalelite
+                            Point your domain manually and register the server into Load Balancer
                           </p>
                         </div>
                       </div>
@@ -3913,7 +4091,7 @@ export default function AeoraxDashboard() {
                             BigBlueButton Node Successfully Provisioned!
                           </h4>
                           <p className="text-xs text-slate-500 max-w-md mx-auto">
-                            The node is running BigBlueButton {completedNodeResult?.bbbVersion || completedNodeResult?.node?.bbbVersion || "4.0.0"}, secured with Let's Encrypt SSL, and actively linked into Scalelite load balancing.
+                            The node is running BigBlueButton {completedNodeResult?.bbbVersion || completedNodeResult?.node?.bbbVersion || "4.0.0"}, secured with Let's Encrypt SSL, and actively linked into Load Balancer.
                           </p>
                         </div>
 
@@ -3945,7 +4123,7 @@ export default function AeoraxDashboard() {
                             </div>
                           </div>
                           <div>
-                            <span className="text-[10px] uppercase font-bold text-slate-500">Scalelite Balancing</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-500">Load Balancing</span>
                             <div className="font-bold text-purple-600 dark:text-purple-400 mt-0.5">Auto-Balanced</div>
                           </div>
                           <div>
@@ -4055,7 +4233,7 @@ export default function AeoraxDashboard() {
                       >
                         <div className="flex items-center space-x-2 mb-1.5">
                           <Layers className={`w-4 h-4 ${testTargetType === "SCALELITE" ? "text-blue-600" : "text-slate-400"}`} />
-                          <span className="font-extrabold text-xs text-slate-900 dark:text-white">Scalelite Balancer</span>
+                          <span className="font-extrabold text-xs text-slate-900 dark:text-white">Load Balancer</span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
                           Balanced across all healthy nodes automatically via least-loaded algorithm.
@@ -4238,6 +4416,25 @@ export default function AeoraxDashboard() {
                       )}
                     </div>
 
+                    {/* Auto-open toggle */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                      <div>
+                        <label htmlFor="autoOpenTab" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none block">
+                          Auto-open Moderator room in a new browser tab on launch
+                        </label>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Uncheck if you want to stay in this panel to copy the Student/Guest invite link first.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="autoOpenTab"
+                        checked={testAutoOpenTab}
+                        onChange={(e) => setTestAutoOpenTab(e.target.checked)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                      />
+                    </div>
+
                     {/* Launch Action */}
                     <div className="pt-2 flex items-center space-x-3">
                       <button
@@ -4331,7 +4528,10 @@ export default function AeoraxDashboard() {
 
               {/* 3. ACTIVE TEST MEETING TELEMETRY & LIVE CONTROLS CARD */}
               {activeTestSession && (
-                <div className="glass-card p-6 rounded-3xl border border-emerald-300 dark:border-emerald-800 bg-gradient-to-r from-emerald-50/40 via-white to-blue-50/40 dark:from-emerald-950/20 dark:via-slate-900/60 dark:to-blue-950/20 shadow-md space-y-6">
+                <div
+                  id="active-test-session-card"
+                  className="glass-card p-6 rounded-3xl border border-emerald-300 dark:border-emerald-800 bg-gradient-to-r from-emerald-50/40 via-white to-blue-50/40 dark:from-emerald-950/20 dark:via-slate-900/60 dark:to-blue-950/20 shadow-md space-y-6"
+                >
                   {/* Top Bar */}
                   <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
                     <div className="flex items-center space-x-3">
@@ -4370,6 +4570,40 @@ export default function AeoraxDashboard() {
                       >
                         <X className="w-3.5 h-3.5" />
                         <span>{isEndingMeeting ? "Ending..." : "End Meeting Session"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Share / Invite Banner */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-between flex-wrap gap-3 shadow-lg shadow-blue-500/20">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center space-x-2">
+                        <Share2 className="w-4 h-4 text-blue-200" />
+                        <span className="font-extrabold text-sm">Invite Someone to This Meeting</span>
+                      </div>
+                      <p className="text-xs text-blue-100 max-w-xl">
+                        Anyone opening the Student / Attendee link joins immediately inside this live classroom without any password.
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          copyToClipboard(activeTestSession.attendeeJoinUrl);
+                          setTestLabToast({ type: "success", message: "Student invite link copied! Send it to any participant." });
+                        }}
+                        className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 font-extrabold text-xs shadow-sm transition active:scale-95"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Student Link</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const text = `Join my live BigBlueButton test session "${activeTestSession.meetingName}":\n${activeTestSession.attendeeJoinUrl}`;
+                          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+                        }}
+                        className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs shadow-sm transition active:scale-95"
+                      >
+                        <span>Share on WhatsApp</span>
                       </button>
                     </div>
                   </div>
@@ -4427,12 +4661,46 @@ export default function AeoraxDashboard() {
                   </div>
 
                   {/* Join URLs Card */}
-                  <div className="space-y-3 pt-2">
+                  <div className="space-y-4 pt-1">
+                    {/* Student Link */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center space-x-1.5">
+                          <Users className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Attendee / Student Join URL (Share with Others / Open in Incognito):</span>
+                        </label>
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">Direct Student Access</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          readOnly
+                          value={activeTestSession.attendeeJoinUrl}
+                          className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
+                        />
+                        <button
+                          onClick={() => {
+                            copyToClipboard(activeTestSession.attendeeJoinUrl);
+                            setTestLabToast({ type: "success", message: "Student join URL copied to clipboard!" });
+                          }}
+                          className="px-3.5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shrink-0"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => window.open(activeTestSession.attendeeJoinUrl, "_blank", "noopener,noreferrer")}
+                          className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition shrink-0"
+                        >
+                          Open Student Tab
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Moderator Link */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
-                          Moderator Classroom Join URL:
+                        <label className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center space-x-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                          <span>Moderator Classroom Join URL:</span>
                         </label>
                         <span className="text-[11px] text-slate-500 font-medium">Full host & recording controls</span>
                       </div>
@@ -4447,49 +4715,88 @@ export default function AeoraxDashboard() {
                             copyToClipboard(activeTestSession.moderatorJoinUrl);
                             setTestLabToast({ type: "success", message: "Moderator join URL copied to clipboard!" });
                           }}
-                          className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                          className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition shrink-0"
                         >
                           Copy
                         </button>
                         <button
                           onClick={() => window.open(activeTestSession.moderatorJoinUrl, "_blank", "noopener,noreferrer")}
-                          className="px-3.5 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition"
+                          className="px-3.5 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition shrink-0"
                         >
                           Open
                         </button>
                       </div>
                     </div>
 
-                    {/* Student Link */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
-                          Attendee / Student Join URL (Open in Incognito / Other Devices for Load Testing):
-                        </label>
-                        <span className="text-[11px] text-slate-500 font-medium">Simulate multiple students</span>
+                    {/* Invite Participant with Custom Name */}
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center space-x-2">
+                          <UserPlus className="w-4 h-4 text-indigo-600" />
+                          <h5 className="font-bold text-xs text-slate-900 dark:text-white">
+                            Add Participant With Specific Name (e.g. Teacher, Student, Guest)
+                          </h5>
+                        </div>
+                        <span className="text-[11px] text-slate-500">
+                          Generates a customized join link carrying their chosen name
+                        </span>
                       </div>
-                      <div className="flex items-center space-x-2">
+
+                      <div className="flex items-center space-x-2 flex-wrap sm:flex-nowrap gap-2">
                         <input
-                          readOnly
-                          value={activeTestSession.attendeeJoinUrl}
-                          className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
-                        />
-                        <button
-                          onClick={() => {
-                            copyToClipboard(activeTestSession.attendeeJoinUrl);
-                            setTestLabToast({ type: "success", message: "Student join URL copied to clipboard!" });
+                          type="text"
+                          value={customInviteName}
+                          onChange={(e) => setCustomInviteName(e.target.value)}
+                          placeholder="Enter name (e.g. Ali Khan, Dr. Aslam, Guest 2)"
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleGenerateCustomJoinUrl();
                           }}
-                          className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                        />
+                        <select
+                          value={customInviteRole}
+                          onChange={(e) => setCustomInviteRole(e.target.value as any)}
+                          className="px-3 py-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shrink-0"
                         >
-                          Copy
-                        </button>
+                          <option value="attendee">Student / Attendee</option>
+                          <option value="moderator">Teacher / Moderator</option>
+                        </select>
                         <button
-                          onClick={() => window.open(activeTestSession.attendeeJoinUrl, "_blank", "noopener,noreferrer")}
-                          className="px-3.5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
+                          onClick={handleGenerateCustomJoinUrl}
+                          disabled={isGeneratingCustomUrl}
+                          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition shrink-0 shadow-sm"
                         >
-                          Open Student Tab
+                          {isGeneratingCustomUrl ? "Generating..." : "Generate Link"}
                         </button>
                       </div>
+
+                      {generatedCustomJoinUrl && (
+                        <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 flex items-center justify-between flex-wrap gap-2 animate-fadeIn">
+                          <div className="flex items-center space-x-2 overflow-hidden max-w-full">
+                            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="text-xs font-mono font-bold text-indigo-900 dark:text-indigo-300 truncate">
+                              {generatedCustomJoinUrl}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1.5 shrink-0">
+                            <button
+                              onClick={() => {
+                                copyToClipboard(generatedCustomJoinUrl);
+                                setTestLabToast({ type: "success", message: `Personalized link for ${customInviteName} copied!` });
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition"
+                            >
+                              Copy Link
+                            </button>
+                            <button
+                              onClick={() => window.open(generatedCustomJoinUrl, "_blank", "noopener,noreferrer")}
+                              className="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 transition"
+                            >
+                              Open
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -5125,6 +5432,131 @@ export default function AeoraxDashboard() {
                 </div>
               </div>
 
+              {/* LIVE VPS NODE RECORDINGS SCANNER & DIRECT R2 SYNC (ZERO TERMINAL) */}
+              <div className="glass-card p-6 rounded-3xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/30 via-white to-purple-50/30 dark:from-indigo-950/20 dark:via-slate-900/60 dark:to-purple-950/20 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-3 rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-500/25">
+                      <Video className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                          Live VPS Node Recordings Scanner & Manual R2 Sync
+                        </h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-bold">
+                          Zero Terminal
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Inspect published recordings stored directly on any BigBlueButton VPS node and manually trigger sync into Cloudflare R2 without SSH.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <select
+                      value={scannedNodeFqdn}
+                      onChange={(e) => setScannedNodeFqdn(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-200"
+                    >
+                      {nodes.map((n) => (
+                        <option key={n.id} value={n.fqdn}>
+                          {n.name} ({n.fqdn})
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={handleScanNodeRecordings}
+                      disabled={isScanningNodeRecordings}
+                      className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold transition shadow-md shadow-indigo-500/20"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isScanningNodeRecordings ? "animate-spin" : ""}`} />
+                      <span>{isScanningNodeRecordings ? "Scanning Node..." : "Scan Node Recordings"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {scannedNodeMsg && (
+                  <div
+                    className={`p-3.5 rounded-2xl text-xs font-bold flex items-center space-x-2 animate-fadeIn ${
+                      scannedNodeMsg.type === "success"
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300"
+                        : scannedNodeMsg.type === "info"
+                        ? "bg-blue-50 dark:bg-blue-950/40 border border-blue-300 text-blue-800 dark:text-blue-300"
+                        : "bg-rose-50 dark:bg-rose-950/40 border border-rose-300 text-rose-800 dark:text-rose-300"
+                    }`}
+                  >
+                    {scannedNodeMsg.type === "success" && <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />}
+                    {scannedNodeMsg.type === "info" && <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />}
+                    {scannedNodeMsg.type === "error" && <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />}
+                    <span>{scannedNodeMsg.text}</span>
+                  </div>
+                )}
+
+                {/* Scanned Recordings Table */}
+                {scannedNodeRecordings.length > 0 && (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="py-3 px-4">Session / Record ID</th>
+                          <th className="py-3 px-4">Class Title</th>
+                          <th className="py-3 px-4">Recorded Date</th>
+                          <th className="py-3 px-4">Duration</th>
+                          <th className="py-3 px-4">Status on VPS</th>
+                          <th className="py-3 px-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                        {scannedNodeRecordings.map((rec) => (
+                          <tr key={rec.recordID} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40 transition">
+                            <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
+                              {rec.recordID}
+                            </td>
+                            <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">
+                              {rec.name}
+                            </td>
+                            <td className="py-3 px-4 text-slate-500">
+                              {rec.startTime}
+                            </td>
+                            <td className="py-3 px-4 font-medium text-slate-600 dark:text-slate-400">
+                              {rec.durationMinutes} min
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                                {rec.state}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right space-x-2">
+                              {rec.playbackUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => window.open(rec.playbackUrl, "_blank")}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition"
+                                >
+                                  View on Node
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleSyncNodeRecordToR2(rec)}
+                                disabled={syncingRecordId === rec.recordID}
+                                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-xs font-extrabold text-white shadow-sm transition"
+                              >
+                                {syncingRecordId === rec.recordID ? "Syncing..." : "Sync to R2 Storage"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
               {/* R2 Live Object Browser & Archive */}
               <div className="glass-card p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 space-y-4">
                 {/* Multi-Tenant Isolation Banner & Controls */}
@@ -5321,7 +5753,7 @@ export default function AeoraxDashboard() {
                       Fleet Cluster Online ({nodes.filter((n) => n.status === "READY").length} Active Nodes)
                     </div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                      Current fleet of {nodes.length} BigBlueButton node{nodes.length === 1 ? "" : "s"} is dynamically balanced via Scalelite and monitored by real-time hardware telemetry daemons.
+                      Current fleet of {nodes.length} BigBlueButton node{nodes.length === 1 ? "" : "s"} is dynamically balanced via Load Balancer and monitored by real-time hardware telemetry daemons.
                     </div>
                   </div>
                 </div>
@@ -5334,7 +5766,7 @@ export default function AeoraxDashboard() {
                         Node Maintenance in Progress ({nodes.filter((n) => n.status === "DRAIN").map((n) => n.name).join(", ")})
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                        These nodes are currently in DRAIN mode. Scalelite is allowing existing meetings to conclude before updates.
+                        These nodes are currently in DRAIN mode. Load Balancer is allowing existing meetings to conclude before updates.
                       </div>
                     </div>
                   </div>
@@ -5391,7 +5823,7 @@ export default function AeoraxDashboard() {
               {brandingSaveToast && (
                 <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2.5 shadow-sm animate-fadeIn">
                   <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>Branding settings updated successfully! Dynamic CSS is active for all new sessions on Scalelite nodes.</span>
+                  <span>Branding settings updated successfully! Dynamic CSS is active for all new sessions on cluster nodes.</span>
                 </div>
               )}
 
@@ -5646,6 +6078,31 @@ export default function AeoraxDashboard() {
                           </div>
                         </div>
 
+                        {/* Meeting End Redirect URL */}
+                        <div>
+                          <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                            Meeting End / Logout Redirect URL (Replaces raw BBB landing page)
+                          </label>
+                          <input
+                            type="text"
+                            value={brandingSettings["default"]?.logoutUrl || "https://panel.nesthost.net/session-ended"}
+                            placeholder="https://panel.nesthost.net/session-ended"
+                            onChange={(e) => {
+                              setBrandingSettings({
+                                ...brandingSettings,
+                                default: {
+                                  ...brandingSettings["default"],
+                                  logoutUrl: e.target.value,
+                                },
+                              });
+                            }}
+                            className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                          />
+                          <span className="text-[11px] text-slate-400 mt-0.5 inline-block">
+                            Students and moderators will be automatically routed to this branded page when a meeting concludes.
+                          </span>
+                        </div>
+
                         {/* Save Button */}
                         <div className="pt-2 flex justify-end">
                           <button
@@ -5894,6 +6351,28 @@ export default function AeoraxDashboard() {
                                 />
                               </div>
                             </div>
+
+                            {/* College Logout Redirect URL */}
+                            <div>
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                Custom College Logout Redirect URL
+                              </label>
+                              <input
+                                type="text"
+                                value={brandingSettings[selectedBrandingCollegeSlug]?.logoutUrl || ""}
+                                placeholder="https://college.edu/thank-you"
+                                onChange={(e) => {
+                                  setBrandingSettings({
+                                    ...brandingSettings,
+                                    [selectedBrandingCollegeSlug]: {
+                                      ...brandingSettings[selectedBrandingCollegeSlug],
+                                      logoutUrl: e.target.value,
+                                    },
+                                  });
+                                }}
+                                className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                              />
+                            </div>
                           </div>
                         ) : (
                           <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-center py-6">
@@ -5923,6 +6402,89 @@ export default function AeoraxDashboard() {
                             <span>{isSavingBranding ? "Saving..." : "Save & Activate College Branding"}</span>
                           </button>
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ZERO-TERMINAL: 1-Click Deploy Branded Landing Page to VPS Node */}
+                  <div className="glass-card p-6 rounded-3xl space-y-4 border border-purple-200 dark:border-purple-900/60 bg-gradient-to-br from-purple-50/40 via-white to-indigo-50/40 dark:from-purple-950/20 dark:via-slate-900/60 dark:to-indigo-950/20">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-3 rounded-2xl bg-purple-600 text-white shadow-md shadow-purple-500/25">
+                        <Terminal className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                          Deploy Branded Landing Page to VPS Nodes (Zero Terminal Required)
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Remotely updates <code>/var/www/bigbluebutton-default/index.html</code> on the server so anyone visiting the direct node URL sees your branded portal instead of "Welcome to BigBlueButton".
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                          Select Node
+                        </label>
+                        <select
+                          value={selectedDeployNodeId}
+                          onChange={(e) => setSelectedDeployNodeId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-200"
+                        >
+                          <option value="">-- Choose BBB Node --</option>
+                          {nodes.map((n) => (
+                            <option key={n.id} value={n.id}>
+                              {n.name} ({n.fqdn})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                          Root SSH Password
+                        </label>
+                        <input
+                          type="password"
+                          value={nodeLandingDeployPassword}
+                          onChange={(e) => setNodeLandingDeployPassword(e.target.value)}
+                          placeholder="Enter root password"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={handleDeployNodeLanding}
+                          disabled={isDeployingNodeLanding}
+                          className="w-full px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-extrabold text-xs shadow-md shadow-purple-500/20 transition flex items-center justify-center space-x-1.5"
+                        >
+                          {isDeployingNodeLanding ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                          <span>{isDeployingNodeLanding ? "Deploying HTML..." : "Deploy Landing to Node"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {nodeLandingDeployMsg && (
+                      <div
+                        className={`p-3.5 rounded-2xl text-xs font-bold flex items-center space-x-2 animate-fadeIn ${
+                          nodeLandingDeployMsg.type === "success"
+                            ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-800 dark:text-emerald-300"
+                            : "bg-rose-50 dark:bg-rose-950/40 border border-rose-300 text-rose-800 dark:text-rose-300"
+                        }`}
+                      >
+                        {nodeLandingDeployMsg.type === "success" ? (
+                          <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        )}
+                        <span>{nodeLandingDeployMsg.text}</span>
                       </div>
                     )}
                   </div>
@@ -6133,7 +6695,7 @@ export default function AeoraxDashboard() {
                               </div>
                               <h5 className="font-extrabold text-sm text-white max-w-xs">{effectiveBanner}</h5>
                               <p className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
-                                Powered by BigBlueButton 3.0 & Scalelite High-Availability Cluster.
+                                Powered by BigBlueButton 3.0 & Load-Balanced High-Availability Cluster.
                               </p>
                               <div
                                 className="mt-2 text-[10px] font-bold px-3 py-1 rounded-full text-white inline-block shadow-sm"

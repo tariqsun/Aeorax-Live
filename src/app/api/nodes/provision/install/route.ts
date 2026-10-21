@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Node successfully provisioned, verified, and linked to Scalelite!",
+      message: "Node successfully provisioned, verified, and linked to Load Balancer!",
       node: savedNode,
       bbbUrl,
       bbbSecret,

@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       const autoStartRecording = body.autoStartRecording !== false;
       const moderatorName = body.moderatorName?.trim() || "Admin Tester";
       const attendeeName = body.attendeeName?.trim() || "Student Benchmark Tester";
-      const welcome = body.welcome || `<br><b>Aeorax Live Direct Benchmark Lab</b><br>Testing BigBlueButton Direct Node & Scalelite Performance.<br>Recording: ${record ? "ENABLED" : "DISABLED"}`;
+      const welcome = body.welcome || `<br><b>Aeorax Live Direct Benchmark Lab</b><br>Testing BigBlueButton Direct Node & Load Balancer Performance.<br>Recording: ${record ? "ENABLED" : "DISABLED"}`;
 
       // Build create params
       const params = new URLSearchParams();
@@ -158,6 +158,11 @@ export async function POST(req: NextRequest) {
         params.set("meta_collegeSlug", body.collegeSlug);
       }
       params.set("meta_origin", "aeorax-admin-direct-lab");
+
+      // Custom Branded Logout URL (prevents raw "Welcome to BigBlueButton" unbranded page)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://panel.nesthost.net";
+      const defaultLogoutUrl = `${appUrl}/session-ended?meetingID=${encodeURIComponent(meetingID)}`;
+      params.set("logoutURL", body.logoutURL || defaultLogoutUrl);
 
       const queryString = params.toString();
       const checksum = calculateBBBChecksum("create", queryString, targetSecret);
@@ -307,6 +312,65 @@ export async function POST(req: NextRequest) {
             : extractXmlTag(xml, "message") || "Could not end meeting (it may already be closed).",
         rawXml: xml,
       });
+    }
+
+    // 3.5 ACTION: GENERATE CUSTOM PARTICIPANT JOIN URL
+    if (action === "generate-join-url") {
+      const meetingID = body.meetingID?.trim();
+      const fullName = body.fullName?.trim() || "Guest Participant";
+      const role = body.role === "moderator" ? "moderator" : "attendee";
+      const password =
+        body.password?.trim() ||
+        (role === "moderator" ? body.moderatorPW || "mp" : body.attendeePW || "ap");
+
+      if (!meetingID) {
+        return NextResponse.json({ success: false, error: "meetingID is required" }, { status: 400 });
+      }
+
+      const joinParams = new URLSearchParams();
+      joinParams.set("meetingID", meetingID);
+      joinParams.set("fullName", fullName);
+      joinParams.set("password", password);
+      joinParams.set("redirect", "true");
+      const joinChecksum = calculateBBBChecksum("join", joinParams.toString(), targetSecret);
+      const joinUrl = `${targetApiUrl}/join?${joinParams.toString()}&checksum=${joinChecksum}`;
+
+      return NextResponse.json({
+        success: true,
+        joinUrl,
+        fullName,
+        role,
+        meetingID,
+      });
+    }
+
+    // 3.6 ACTION: QUERY BIGBLUEBUTTON NODE GETRECORDINGS
+    if (action === "check-recordings") {
+      const meetingID = body.meetingID?.trim();
+      const params = new URLSearchParams();
+      if (meetingID) {
+        params.set("meetingID", meetingID);
+      }
+      const queryString = params.toString();
+      const checksum = calculateBBBChecksum("getRecordings", queryString, targetSecret);
+      const url = `${targetApiUrl}/getRecordings?${queryString}&checksum=${checksum}`;
+
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { Accept: "application/xml" },
+          cache: "no-store",
+        });
+        const xml = await res.text();
+        const returncode = extractXmlTag(xml, "returncode");
+        return NextResponse.json({
+          success: returncode === "SUCCESS",
+          rawXml: xml,
+          returncode,
+        });
+      } catch (err: any) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+      }
     }
 
     // 4. ACTION: TEST DIRECT RECORDING INGESTION TO R2

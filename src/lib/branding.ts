@@ -8,6 +8,7 @@ export interface BrandConfig {
   bannerText?: string;
   welcomePdfUrl?: string;
   customCss?: string;
+  logoutUrl?: string;
 }
 
 export const DEFAULT_GLOBAL_BRAND: BrandConfig = {
@@ -18,6 +19,7 @@ export const DEFAULT_GLOBAL_BRAND: BrandConfig = {
   bannerText: "Welcome to Aeorax Live Virtual Classroom",
   welcomePdfUrl: "",
   customCss: "",
+  logoutUrl: "https://panel.nesthost.net/session-ended",
 };
 
 export const DEFAULT_COLLEGES_BRANDING: Record<string, BrandConfig> = {
