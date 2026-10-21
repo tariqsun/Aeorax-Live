@@ -51,6 +51,7 @@ import {
   PlayCircle,
   Share2,
   UserPlus,
+  ChevronDown,
 } from "lucide-react";
 
 interface AuthUser {
@@ -428,6 +429,7 @@ export default function AeoraxDashboard() {
   });
   const [manualNodeTestStatus, setManualNodeTestStatus] = useState<"idle" | "testing" | "success">("idle");
   const [nodeAddSuccessMsg, setNodeAddSuccessMsg] = useState<string | null>(null);
+  const [openActionNodeId, setOpenActionNodeId] = useState<string | null>(null);
 
   // 1-Click Fresh VPS Installer Command State
   const [quickInstallFqdn, setQuickInstallFqdn] = useState<string>("node1.nesthost.net");
@@ -3177,15 +3179,14 @@ export default function AeoraxDashboard() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-100/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 uppercase font-black">
                     <tr>
-                      <th className="py-4 px-5">Server / FQDN</th>
-                      <th className="py-4 px-5">IP Address</th>
-                      <th className="py-4 px-5">Status</th>
-                      <th className="py-4 px-5">BBB Version</th>
-                      <th className="py-4 px-5">CPU</th>
-                      <th className="py-4 px-5">RAM Memory</th>
-                      <th className="py-4 px-5">NVMe Disk</th>
-                      <th className="py-4 px-5">Live Rooms</th>
-                      <th className="py-4 px-5 text-right">Actions</th>
+                      <th className="py-3 px-4">Server / FQDN & IP</th>
+                      <th className="py-3 px-3">Status</th>
+                      <th className="py-3 px-3">BBB Version</th>
+                      <th className="py-3 px-3">CPU</th>
+                      <th className="py-3 px-3">RAM</th>
+                      <th className="py-3 px-3">NVMe Disk</th>
+                      <th className="py-3 px-3">Live Rooms</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -3195,16 +3196,17 @@ export default function AeoraxDashboard() {
 
                       return (
                         <tr key={node.id} className="hover:bg-blue-50/40 transition">
-                          <td className="py-4 px-5">
-                            <div className="font-bold text-slate-900 dark:text-white">{node.name}</div>
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-slate-900 dark:text-white text-sm">{node.name}</div>
                             <div className="text-xs text-slate-500 font-mono mt-0.5">{node.fqdn}</div>
+                            <div className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-mono font-bold text-[11px] mt-1 border border-blue-200 dark:border-blue-800">
+                              <span className="text-[10px] text-slate-400">IP:</span>
+                              <span>{node.ip}</span>
+                            </div>
                           </td>
-                          <td className="py-4 px-5 font-mono text-xs text-slate-600 dark:text-slate-400">
-                            {node.ip}
-                          </td>
-                          <td className="py-4 px-5">
+                          <td className="py-3 px-3">
                             <span
-                              className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                              className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
                                 node.status === "READY"
                                   ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                                   : "bg-amber-100 text-amber-800 border border-amber-300"
@@ -3213,70 +3215,98 @@ export default function AeoraxDashboard() {
                               {node.status}
                             </span>
                           </td>
-                          <td className="py-4 px-5">
-                            <div className="flex items-center space-x-1.5">
+                          <td className="py-3 px-3">
+                            <div className="flex flex-col items-start gap-1">
                               <span className="font-mono text-xs font-bold text-slate-900 dark:text-white">
                                 v{currentVer.replace(/^v/, "")}
                               </span>
-                              {!isUpToDate && latestRelease && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 animate-pulse">
+                              {!isUpToDate && latestRelease ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300">
                                   Update v{latestRelease.version} Available
                                 </span>
-                              )}
-                              {isUpToDate && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200">
+                              ) : (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200">
                                   Latest
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">{node.cpu}%</td>
-                          <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
+                          <td className="py-3 px-3 font-mono font-bold text-xs text-slate-900 dark:text-white">{node.cpu}%</td>
+                          <td className="py-3 px-3 font-mono font-bold text-xs text-slate-900 dark:text-white">
                             {node.ramUsedGb}/{node.ramTotalGb} GB
                           </td>
-                          <td className="py-4 px-5 font-mono font-bold text-slate-900 dark:text-white">
+                          <td className="py-3 px-3 font-mono font-bold text-xs text-slate-900 dark:text-white">
                             {node.diskUsedGb}/{node.diskTotalGb} GB
                           </td>
-                          <td className="py-4 px-5 font-bold text-slate-900 dark:text-white">{node.meetings} Rooms</td>
-                          <td className="py-4 px-5 text-right space-x-2">
-                            <button
-                              onClick={() => {
-                                setTestTargetType("NODE");
-                                setTestSelectedNodeFqdn(node.fqdn);
-                                setAdminTab("testlab");
-                              }}
-                              className="text-xs px-2.5 py-1.5 rounded-xl border font-bold border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 transition shadow-xs"
-                              title="Directly test this BigBlueButton node without college or Moodle"
-                            >
-                              🧪 Test Node
-                            </button>
-                            <button
-                              onClick={() => handleAutoSyncSecrets(node.ip)}
-                              disabled={isSyncingSecrets}
-                              className="text-xs px-2.5 py-1.5 rounded-xl border font-bold border-purple-300 text-purple-800 bg-purple-50 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300 transition shadow-xs disabled:opacity-50"
-                              title="SSH into this server to sync BBB secret and real CPU/RAM specs"
-                            >
-                              🔄 Sync
-                            </button>
-                            {!isUpToDate && (
+                          <td className="py-3 px-3 font-bold text-xs text-slate-900 dark:text-white">{node.meetings} Rooms</td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="relative inline-block text-left">
                               <button
-                                onClick={() => handleStartNodeUpgrade(node)}
-                                className="text-xs px-3 py-1.5 rounded-xl border font-bold border-purple-300 text-purple-800 bg-purple-50 hover:bg-purple-100 transition shadow-xs"
-                                title="Safely drain node and upgrade to latest BigBlueButton"
+                                onClick={() => setOpenActionNodeId(openActionNodeId === node.id ? null : node.id)}
+                                className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold transition shadow-xs"
                               >
-                                ⚡ Upgrade
+                                <span>Actions</span>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openActionNodeId === node.id ? "rotate-180 text-purple-600" : "text-slate-400"}`} />
                               </button>
-                            )}
-                            <button
-                              onClick={() => toggleDrain(node.id)}
-                              className={`text-xs px-3 py-1.5 rounded-xl border font-bold transition ${
-                                node.status === "READY"
-                                  ? "border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
-                                  : "border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
-                              }`}
-                            >
-                              {node.status === "READY" ? "Drain" : "Enable"}
-                            </button>
+
+                              {openActionNodeId === node.id && (
+                                <div className="absolute right-0 mt-1.5 w-52 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 text-left divide-y divide-slate-100 dark:divide-slate-800 animate-fadeIn">
+                                  <div className="py-1">
+                                    <button
+                                      onClick={() => {
+                                        setTestTargetType("NODE");
+                                        setTestSelectedNodeFqdn(node.fqdn);
+                                        setAdminTab("testlab");
+                                        setOpenActionNodeId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 flex items-center space-x-2 transition"
+                                    >
+                                      <FlaskConical className="w-3.5 h-3.5 text-blue-500" />
+                                      <span>Launch Test Meeting</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        handleAutoSyncSecrets(node.ip);
+                                        setOpenActionNodeId(null);
+                                      }}
+                                      disabled={isSyncingSecrets}
+                                      className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-600 flex items-center space-x-2 transition disabled:opacity-50"
+                                    >
+                                      <RefreshCw className={`w-3.5 h-3.5 text-purple-500 ${isSyncingSecrets ? "animate-spin" : ""}`} />
+                                      <span>Sync via SSH</span>
+                                    </button>
+                                  </div>
+                                  <div className="py-1">
+                                    {!isUpToDate && (
+                                      <button
+                                        onClick={() => {
+                                          handleStartNodeUpgrade(node);
+                                          setOpenActionNodeId(null);
+                                        }}
+                                        className="w-full text-left px-3.5 py-2 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center space-x-2 transition"
+                                      >
+                                        <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                                        <span>Upgrade to v{latestRelease?.version}</span>
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        toggleDrain(node.id);
+                                        setOpenActionNodeId(null);
+                                      }}
+                                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center space-x-2 transition ${
+                                        node.status === "READY"
+                                          ? "text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                                          : "text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                                      }`}
+                                    >
+                                      <ShieldCheck className="w-3.5 h-3.5" />
+                                      <span>{node.status === "READY" ? "Drain Node (Maintenance)" : "Enable Node"}</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
