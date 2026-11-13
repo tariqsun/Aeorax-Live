@@ -12,7 +12,8 @@ services:
       - scalelite_redis_data:/data
 
   # 1. Scalelite API (Rails Web Service)
-  scalelite-api:
+  # Named 'scalelite' to bind with Coolify service domain mapping
+  scalelite:
     image: blindsidenetwks/scalelite:v1.8-api
     restart: unless-stopped
     ports:
@@ -37,7 +38,7 @@ services:
     environment:
       REDIS_URL: "redis://scalelite-redis:6379/0"
     depends_on:
-      - scalelite-api
+      - scalelite
       - scalelite-redis
 
   # 3. Scalelite Recording Importer
@@ -51,7 +52,7 @@ services:
       - scalelite_spool:/var/bigbluebutton/spool
       - scalelite_published:/var/bigbluebutton/published
     depends_on:
-      - scalelite-api
+      - scalelite
       - scalelite-redis
 
 volumes:

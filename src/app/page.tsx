@@ -161,6 +161,7 @@ export default function AeoraxDashboard() {
   const [adminTab, setAdminTab] = useState<"overview" | "nodes" | "testlab" | "colleges" | "moodle" | "recordings" | "advisor" | "branding">("overview");
   const [clientTab, setClientTab] = useState<"rooms" | "teachers" | "recordings">("rooms");
   const [selectedMoodleCollegeSlug, setSelectedMoodleCollegeSlug] = useState<string>("oxford-intl");
+  const [gatewayServerType, setGatewayServerType] = useState<string>("SCALELITE");
   const [moodleTestResult, setMoodleTestResult] = useState<"idle" | "testing" | "success">("idle");
 
   // Direct Server Benchmark & Direct Meeting Test Lab State
@@ -5158,6 +5159,26 @@ export default function AeoraxDashboard() {
               {/* Selected College LMS Configuration Cards */}
               {(() => {
                 const targetCol = colleges.find((c) => c.slug === selectedMoodleCollegeSlug) || colleges[0];
+                const defaultLbUrl = process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api";
+                const defaultLbSecret = process.env.NEXT_PUBLIC_SCALELITE_SHARED_SECRET || "aeorax_scalelite_master_secret_2026";
+
+                let activeGatewayUrl = defaultLbUrl;
+                let activeGatewaySecret = defaultLbSecret;
+                let activeGatewayName = "Auto Load Balancer Cluster (Scalelite)";
+                const isLoadBalancerMode = gatewayServerType === "SCALELITE";
+
+                if (!isLoadBalancerMode) {
+                  const matchedNode = nodes.find((n) => n.fqdn === gatewayServerType || n.id === gatewayServerType);
+                  if (matchedNode) {
+                    activeGatewayUrl = `https://${matchedNode.fqdn}/bigbluebutton/api`;
+                    activeGatewaySecret = (matchedNode as any).sharedSecret ||
+                      (matchedNode.fqdn.includes("node2")
+                        ? "rxHrPQPEvbFtovVJqnQaCyGsLcyzAtMku9XBqmtIY"
+                        : "JrenQwLngjSY7ApXWzpQvyFz36Z4oaSO7G4eJcKY");
+                    activeGatewayName = `${matchedNode.name} (${matchedNode.fqdn})`;
+                  }
+                }
+
                 return (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left 2 Cols: Credentials & Endpoints */}
@@ -5177,20 +5198,116 @@ export default function AeoraxDashboard() {
                           </span>
                         </div>
 
+                        {/* Routing Target Selector: Load Balancer (Default) vs Dedicated Single Server */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
+                              <span>Gateway Target Endpoint:</span>
+                              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold normal-case bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                                {isLoadBalancerMode ? "⚖️ Load Balancer (Default)" : "🖥️ Dedicated Server"}
+                              </span>
+                            </label>
+                            <span className="text-[11px] text-slate-500">Click to switch target</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {/* Option 1: Load Balancer (DEFAULT) */}
+                            <button
+                              type="button"
+                              onClick={() => setGatewayServerType("SCALELITE")}
+                              className={`p-3.5 rounded-2xl border text-left transition flex flex-col justify-between ${
+                                isLoadBalancerMode
+                                  ? "border-blue-500 bg-blue-50/90 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-2 ring-blue-500/25 shadow-sm"
+                                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-xs flex items-center space-x-1.5">
+                                  <span>⚖️</span>
+                                  <span>Load Balancer</span>
+                                </span>
+                                <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded-md bg-blue-600 text-white shadow-xs">
+                                  Recommended
+                                </span>
+                              </div>
+                              <div className="text-[11px] font-mono font-bold text-blue-700 dark:text-blue-300 truncate mt-1.5">
+                                bbb.nesthost.net
+                              </div>
+                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+                                ✓ Auto Multi-Server Balance
+                              </div>
+                            </button>
+
+                            {/* Option 2 & 3: Direct Nodes */}
+                            {nodes.map((n, idx) => {
+                              const isSelected = gatewayServerType === n.fqdn;
+                              return (
+                                <button
+                                  key={n.id || n.fqdn}
+                                  type="button"
+                                  onClick={() => setGatewayServerType(n.fqdn)}
+                                  className={`p-3.5 rounded-2xl border text-left transition flex flex-col justify-between ${
+                                    isSelected
+                                      ? "border-purple-500 bg-purple-50/90 dark:bg-purple-950/40 text-purple-950 dark:text-purple-100 ring-2 ring-purple-500/25 shadow-sm"
+                                      : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-extrabold text-xs flex items-center space-x-1.5 truncate">
+                                      <span>🖥️</span>
+                                      <span className="truncate">{n.name || `Node 0${idx + 1}`}</span>
+                                    </span>
+                                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300">
+                                      Single Node
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] font-mono font-bold text-purple-700 dark:text-purple-300 truncate mt-1.5">
+                                    {n.fqdn}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
+                                    Dedicated Server IP: {n.ip}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Status Alert Banner */}
+                        <div
+                          className={`p-3 rounded-2xl border text-xs font-medium flex items-center space-x-2 ${
+                            isLoadBalancerMode
+                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 text-emerald-800 dark:text-emerald-300"
+                              : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 text-amber-800 dark:text-amber-300"
+                          }`}
+                        >
+                          <span className="text-base">{isLoadBalancerMode ? "⚖️" : "⚠️"}</span>
+                          <span>
+                            {isLoadBalancerMode
+                              ? "High Availability Mode Active: Moodle will send students to the Scalelite Load Balancer, which automatically balances traffic across Node 1 & Node 2."
+                              : `Dedicated Single Server Mode Active: Moodle will bypass the load balancer and connect directly to ${activeGatewayName}. Classes will run only on this server.`}
+                          </span>
+                        </div>
+
                         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-4">
                           {/* BBB URL */}
                           <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                              BigBlueButton Server URL
-                            </label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                BigBlueButton Server URL
+                              </label>
+                              <span className="text-[11px] font-mono text-slate-500">
+                                {isLoadBalancerMode ? "Scalelite Master API" : activeGatewayName}
+                              </span>
+                            </div>
                             <div className="flex items-center space-x-2 mt-1">
                               <input
                                 readOnly
-                                value={process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api"}
+                                value={activeGatewayUrl}
                                 className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200"
                               />
                               <button
-                                onClick={() => copyToClipboard(process.env.NEXT_PUBLIC_SCALELITE_API_URL || "https://bbb.nesthost.net/bigbluebutton/api")}
+                                onClick={() => copyToClipboard(activeGatewayUrl)}
                                 className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
                               >
                                 Copy
@@ -5202,7 +5319,7 @@ export default function AeoraxDashboard() {
                           <div>
                             <div className="flex items-center justify-between">
                               <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                Tenant Shared Secret (Salt)
+                                {isLoadBalancerMode ? "Load Balancer Shared Secret (Salt)" : "Node Shared Secret (Salt)"}
                               </label>
                               <span className="text-[11px] text-blue-600 dark:text-blue-400 font-bold">
                                 SHA-1 Checksum Enforced
@@ -5211,11 +5328,11 @@ export default function AeoraxDashboard() {
                             <div className="flex items-center space-x-2 mt-1">
                               <input
                                 readOnly
-                                value={targetCol.apiSecret}
+                                value={activeGatewaySecret}
                                 className="w-full text-xs font-mono bg-white dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-purple-600 dark:text-purple-400"
                               />
                               <button
-                                onClick={() => copyToClipboard(targetCol.apiSecret)}
+                                onClick={() => copyToClipboard(activeGatewaySecret)}
                                 className="px-3.5 py-2.5 bg-slate-200 dark:bg-slate-800 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-700 transition"
                               >
                                 {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : "Copy"}
@@ -5957,24 +6074,82 @@ export default function AeoraxDashboard() {
                           </div>
 
                           <div>
-                            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                              Global Brand Logo URL
-                            </label>
-                            <input
-                              type="text"
-                              value={brandingSettings["default"]?.logoUrl || ""}
-                              placeholder="https://yourdomain.com/logo.png"
-                              onChange={(e) => {
-                                setBrandingSettings({
-                                  ...brandingSettings,
-                                  default: {
-                                    ...brandingSettings["default"],
-                                    logoUrl: e.target.value,
-                                  },
-                                });
-                              }}
-                              className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
-                            />
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                Global Brand Logo
+                              </label>
+                              <span className="text-[10px] text-slate-400 font-medium">PNG, SVG, JPG, WebP</span>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <input
+                                type="text"
+                                value={brandingSettings["default"]?.logoUrl || ""}
+                                placeholder="Paste logo URL or click Upload ➔"
+                                onChange={(e) => {
+                                  setBrandingSettings({
+                                    ...brandingSettings,
+                                    default: {
+                                      ...brandingSettings["default"],
+                                      logoUrl: e.target.value,
+                                    },
+                                  });
+                                }}
+                                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                              />
+                              <label className="cursor-pointer px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center space-x-1.5 shrink-0">
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Upload</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onload = (uploadEvt) => {
+                                        const dataUrl = uploadEvt.target?.result as string;
+                                        setBrandingSettings({
+                                          ...brandingSettings,
+                                          default: {
+                                            ...brandingSettings["default"],
+                                            logoUrl: dataUrl,
+                                          },
+                                        });
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            {brandingSettings["default"]?.logoUrl && (
+                              <div className="mt-2 flex items-center space-x-2 p-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                                <img
+                                  src={brandingSettings["default"].logoUrl}
+                                  alt="Brand Logo Preview"
+                                  className="h-8 max-w-[140px] object-contain rounded bg-white p-1"
+                                />
+                                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                  ✓ Logo loaded
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setBrandingSettings({
+                                      ...brandingSettings,
+                                      default: {
+                                        ...brandingSettings["default"],
+                                        logoUrl: "",
+                                      },
+                                    });
+                                  }}
+                                  className="ml-auto text-xs text-red-500 hover:text-red-600 font-bold px-2 py-1"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -6231,24 +6406,82 @@ export default function AeoraxDashboard() {
                               </div>
 
                               <div>
-                                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                                  College Classroom Logo URL
-                                </label>
-                                <input
-                                  type="text"
-                                  value={brandingSettings[selectedBrandingCollegeSlug]?.logoUrl || ""}
-                                  placeholder="https://college.edu/logo.png"
-                                  onChange={(e) => {
-                                    setBrandingSettings({
-                                      ...brandingSettings,
-                                      [selectedBrandingCollegeSlug]: {
-                                        ...brandingSettings[selectedBrandingCollegeSlug],
-                                        logoUrl: e.target.value,
-                                      },
-                                    });
-                                  }}
-                                  className="w-full mt-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
-                                />
+                                <div className="flex items-center justify-between">
+                                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                                    College Classroom Logo
+                                  </label>
+                                  <span className="text-[10px] text-slate-400 font-medium">PNG, SVG, JPG, WebP</span>
+                                </div>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <input
+                                    type="text"
+                                    value={brandingSettings[selectedBrandingCollegeSlug]?.logoUrl || ""}
+                                    placeholder="Paste logo URL or click Upload ➔"
+                                    onChange={(e) => {
+                                      setBrandingSettings({
+                                        ...brandingSettings,
+                                        [selectedBrandingCollegeSlug]: {
+                                          ...brandingSettings[selectedBrandingCollegeSlug],
+                                          logoUrl: e.target.value,
+                                        },
+                                      });
+                                    }}
+                                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                                  />
+                                  <label className="cursor-pointer px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center space-x-1.5 shrink-0">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>Upload</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          const reader = new FileReader();
+                                          reader.onload = (uploadEvt) => {
+                                            const dataUrl = uploadEvt.target?.result as string;
+                                            setBrandingSettings({
+                                              ...brandingSettings,
+                                              [selectedBrandingCollegeSlug]: {
+                                                ...brandingSettings[selectedBrandingCollegeSlug],
+                                                logoUrl: dataUrl,
+                                              },
+                                            });
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                                {brandingSettings[selectedBrandingCollegeSlug]?.logoUrl && (
+                                  <div className="mt-2 flex items-center space-x-2 p-2 bg-slate-100 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <img
+                                      src={brandingSettings[selectedBrandingCollegeSlug].logoUrl}
+                                      alt="College Logo Preview"
+                                      className="h-8 max-w-[140px] object-contain rounded bg-white p-1"
+                                    />
+                                    <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                                      ✓ Logo loaded
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setBrandingSettings({
+                                          ...brandingSettings,
+                                          [selectedBrandingCollegeSlug]: {
+                                            ...brandingSettings[selectedBrandingCollegeSlug],
+                                            logoUrl: "",
+                                          },
+                                        });
+                                      }}
+                                      className="ml-auto text-xs text-red-500 hover:text-red-600 font-bold px-2 py-1"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
