@@ -141,8 +141,8 @@ export default function AeoraxDashboard() {
   // Authentication & RBAC Layer State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-  const [loginIdentifier, setLoginIdentifier] = useState<string>("superadmin@aeoraxlive.com");
-  const [loginPassword, setLoginPassword] = useState<string>("AdminPassword123!");
+  const [loginIdentifier, setLoginIdentifier] = useState<string>("");
+  const [loginPassword, setLoginPassword] = useState<string>("");
   const [loginRole, setLoginRole] = useState<"SUPER_ADMIN" | "COLLEGE_ADMIN">("SUPER_ADMIN");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
@@ -1838,8 +1838,6 @@ export default function AeoraxDashboard() {
                 type="button"
                 onClick={() => {
                   setLoginRole("SUPER_ADMIN");
-                  setLoginIdentifier("superadmin@aeoraxlive.com");
-                  setLoginPassword("AdminPassword123!");
                   setLoginError(null);
                 }}
                 className={`flex items-center justify-center space-x-1.5 py-2.5 rounded-xl transition ${
@@ -1855,8 +1853,6 @@ export default function AeoraxDashboard() {
                 type="button"
                 onClick={() => {
                   setLoginRole("COLLEGE_ADMIN");
-                  setLoginIdentifier("oxford-intl");
-                  setLoginPassword("sec_oxford_bbb_secret_998877");
                   setLoginError(null);
                 }}
                 className={`flex items-center justify-center space-x-1.5 py-2.5 rounded-xl transition ${
@@ -1947,50 +1943,6 @@ export default function AeoraxDashboard() {
                 )}
               </button>
             </form>
-
-            {/* Quick Demo Access Badges */}
-            <div className="pt-2 border-t border-slate-800/80">
-              <div className="text-[10px] uppercase font-bold text-slate-500 mb-2">1-Click Fast Access</div>
-              <div className="flex flex-wrap gap-2 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginRole("SUPER_ADMIN");
-                    setLoginIdentifier("superadmin@aeoraxlive.com");
-                    setLoginPassword("AdminPassword123!");
-                    setLoginError(null);
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/50 text-blue-300 hover:bg-blue-900/60 transition"
-                >
-                  ⚡ Super Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginRole("SUPER_ADMIN");
-                    setLoginIdentifier("admin");
-                    setLoginPassword("aeorax2026!");
-                    setLoginError(null);
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 hover:bg-emerald-900/60 transition"
-                >
-                  🔑 Master Root Key
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginRole("COLLEGE_ADMIN");
-                    const target = colleges[0] || { slug: "test-college", name: "Client College" };
-                    setLoginIdentifier(target.slug);
-                    setLoginPassword("aeorax2026!");
-                    setLoginError(null);
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-800/50 text-purple-300 hover:bg-purple-900/60 transition"
-                >
-                  🎓 {colleges[0]?.name ? `${colleges[0].name.trim().slice(0, 14)} Admin` : "Client College Admin"}
-                </button>
-              </div>
-            </div>
           </div>
 
           <p className="text-[11px] text-center text-slate-500 font-mono">

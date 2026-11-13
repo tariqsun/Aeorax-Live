@@ -4,50 +4,57 @@
 version: "3.8"
 
 services:
+  # Internal Redis for Scalelite state
+  scalelite-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - scalelite_redis_data:/data
+
   # 1. Scalelite API (Rails Web Service)
   scalelite-api:
-    image: blindsidenetworks/scalelite:v1.4.0
-    container_name: aeorax-scalelite-api
+    image: blindsidenetwks/scalelite:v1.8-api
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "3000"
     environment:
       DATABASE_URL: "${SCALELITE_DATABASE_URL:-postgresql://postgres:Doeubva4sd8EgYtRL831gg1dp0gDW4Vx8QDqUCGr8W1xEpim3kJp3cGIitlxqtDb@nxratqxgwqkgt82e7okajk3v:5432/postgres}"
-      REDIS_URL: "${SCALELITE_REDIS_URL:-redis://aeorax-redis:6379/0}"
+      REDIS_URL: "redis://scalelite-redis:6379/0"
       SECRET_KEY_BASE: "${SCALELITE_SECRET_KEY_BASE:-e4d28f87b8f9e01c34a5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3}"
       LOADBALANCER_SECRET: "${LOADBALANCER_SECRET:-aeorax_scalelite_master_secret_2026}"
-      URL_HOST: "${GATEWAY_DOMAIN:-bbb.aeoraxlive.com}"
+      URL_HOST: "${GATEWAY_DOMAIN:-bbb.nesthost.net}"
       RECORDING_DISABLED: "false"
     volumes:
       - scalelite_spool:/var/bigbluebutton/spool
       - scalelite_published:/var/bigbluebutton/published
+    depends_on:
+      - scalelite-redis
 
   # 2. Scalelite Node Status Poller
   scalelite-poller:
-    image: blindsidenetworks/scalelite:v1.4.0
-    container_name: aeorax-scalelite-poller
+    image: blindsidenetwks/scalelite:v1.8-poller
     restart: unless-stopped
-    command: ["bin/start-poller"]
     environment:
-      REDIS_URL: "${SCALELITE_REDIS_URL:-redis://aeorax-redis:6379/0}"
+      REDIS_URL: "redis://scalelite-redis:6379/0"
     depends_on:
       - scalelite-api
+      - scalelite-redis
 
   # 3. Scalelite Recording Importer
   scalelite-recording-importer:
-    image: blindsidenetworks/scalelite:v1.4.0
-    container_name: aeorax-scalelite-recording-importer
+    image: blindsidenetwks/scalelite:v1.8-recording-importer
     restart: unless-stopped
-    command: ["bin/start-recording-importer"]
     environment:
       DATABASE_URL: "${SCALELITE_DATABASE_URL:-postgresql://postgres:Doeubva4sd8EgYtRL831gg1dp0gDW4Vx8QDqUCGr8W1xEpim3kJp3cGIitlxqtDb@nxratqxgwqkgt82e7okajk3v:5432/postgres}"
-      REDIS_URL: "${SCALELITE_REDIS_URL:-redis://aeorax-redis:6379/0}"
+      REDIS_URL: "redis://scalelite-redis:6379/0"
     volumes:
       - scalelite_spool:/var/bigbluebutton/spool
       - scalelite_published:/var/bigbluebutton/published
     depends_on:
       - scalelite-api
+      - scalelite-redis
 
 volumes:
   scalelite_spool:
   scalelite_published:
+  scalelite_redis_data:
